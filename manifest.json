@@ -1,0 +1,25 @@
+{
+  "name": "Inventário Florestal",
+  "short_name": "Inventário",
+  "description": "Coleta offline de inventário florestal (fazenda > talhão > parcela > árvore)",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f5132",
+  "theme_color": "#0f5132",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

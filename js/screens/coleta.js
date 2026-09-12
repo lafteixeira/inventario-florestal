@@ -1,0 +1,321 @@
+import * as db from '../db.js';
+import { validarCap, validarAltura, QUALIDADES } from '../validation.js';
+import { medicoesValidasComDap, classesComDeficitDeAltura } from '../stats.js';
+import { exportarBackup, importarBackupDeArquivo } from '../export.js';
+
+const LIMIAR_DEFICIT = 3;
+
+export async function initColeta(container, fazenda) {
+  const ctx = { container, fazenda, talhao: null, parcela: null, medicoes: [], pendente: null };
+  await carregarOuCriarTalhaoEParcela(ctx);
+  render(ctx);
+}
+
+async function carregarOuCriarTalhaoEParcela(ctx) {
+  const meta = await db.getMeta();
+
+  ctx.talhao = meta.talhaoAtualId ? await db.getTalhao(meta.talhaoAtualId) : null;
+  if (!ctx.talhao) {
+    ctx.talhao = await db.criarTalhao(ctx.fazenda.id);
+    await db.setMeta({ talhaoAtualId: ctx.talhao.id });
+  }
+
+  ctx.parcela = meta.parcelaAtualId ? await db.getParcela(meta.parcelaAtualId) : null;
+  if (ctx.parcela && ctx.parcela.talhaoId !== ctx.talhao.id) {
+    // Estado inconsistente (ex.: importação de backup) — não usar parcela de outro talhão.
+    ctx.parcela = null;
+  }
+  if (!ctx.parcela) {
+    const ultima = await db.getUltimaParcelaCriada();
+    const configPrefill = ultima
+      ? { forma: ultima.forma, comprimento: ultima.comprimento, largura: ultima.largura, raio: ultima.raio }
+      : { forma: 'retangular', comprimento: null, largura: null, raio: null };
+    ctx.parcela = await db.criarParcela(ctx.talhao.id, configPrefill);
+    await db.setMeta({ parcelaAtualId: ctx.parcela.id });
+  }
+
+  ctx.medicoes = await db.getMedicoesDaParcela(ctx.parcela.id);
+}
+
+function proximaLinhaEArvore(ctx) {
+  if (ctx.medicoes.length === 0) return { linha: 1, arvore: 1 };
+  const ultima = ctx.medicoes.reduce((a, b) => (a.id > b.id ? a : b));
+  return { linha: ultima.linha, arvore: ultima.arvore + 1 };
+}
+
+function render(ctx) {
+  const { forma, comprimento, largura, raio, area } = ctx.parcela;
+  const configTravada = ctx.medicoes.length > 0;
+  const { linha, arvore } = proximaLinhaEArvore(ctx);
+
+  ctx.container.innerHTML = `
+    <section class="painel">
+      <h2>Talhão ${ctx.talhao.numero} · Parcela ${ctx.parcela.numero}</h2>
+
+      <fieldset id="config-parcela" ${configTravada ? 'disabled' : ''}>
+        <legend>Configuração da parcela ${configTravada ? '(travada — já há medições)' : ''}</legend>
+        <label>Forma
+          <select id="forma">
+            <option value="retangular" ${forma === 'retangular' ? 'selected' : ''}>Retangular</option>
+            <option value="circular" ${forma === 'circular' ? 'selected' : ''}>Circular</option>
+          </select>
+        </label>
+        <div id="campos-retangular" class="linha-campos" ${forma !== 'retangular' ? 'hidden' : ''}>
+          <label>Comprimento (m) <input id="comprimento" type="number" step="0.01" min="0" value="${comprimento ?? ''}"></label>
+          <label>Largura (m) <input id="largura" type="number" step="0.01" min="0" value="${largura ?? ''}"></label>
+        </div>
+        <div id="campos-circular" class="linha-campos" ${forma !== 'circular' ? 'hidden' : ''}>
+          <label>Raio (m) <input id="raio" type="number" step="0.01" min="0" value="${raio ?? ''}"></label>
+        </div>
+        <p>Área: <strong id="area-calculada">${area ? area.toFixed(1) + ' m²' : '—'}</strong></p>
+      </fieldset>
+
+      <form id="form-medicao">
+        <legend>Medição</legend>
+        <div class="linha-campos">
+          <label>Linha <input id="linha" type="number" min="1" step="1" value="${linha}"></label>
+          <label>Árvore <input id="arvore" type="number" min="1" step="1" value="${arvore}"></label>
+        </div>
+        <div class="linha-campos">
+          <label>CAP (cm) <input id="cap" type="text" inputmode="decimal" placeholder="ex: 32,5"></label>
+          <label>Altura (m) <input id="altura" type="text" inputmode="decimal" placeholder="opcional"></label>
+        </div>
+        <label class="toggle">
+          <input id="toggle130" type="checkbox">
+          Somar 1,30 m automaticamente (leitura à altura do peito)
+        </label>
+        <label>Qualidade
+          <select id="qualidade">
+            ${QUALIDADES.filter((q) => q.id !== 5)
+              .map((q) => `<option value="${q.id}">${q.nome}</option>`)
+              .join('')}
+          </select>
+        </label>
+        <p id="msg-validacao" class="msg" hidden></p>
+        <button type="submit" id="btn-adicionar">Adicionar medição</button>
+      </form>
+
+      <section id="painel-resultados"></section>
+
+      <div class="acoes">
+        <button id="btn-desfazer" type="button">Desfazer última medição</button>
+        <button id="btn-finalizar-parcela" type="button">Finalizar parcela</button>
+        <button id="btn-concluir-talhao" type="button">Concluir talhão</button>
+      </div>
+      <div class="acoes">
+        <button id="btn-exportar" type="button">Exportar backup</button>
+        <label class="botao-arquivo">
+          Importar backup
+          <input id="input-importar" type="file" accept="application/json" hidden>
+        </label>
+      </div>
+    </section>
+  `;
+
+  atualizarPainelResultados(ctx);
+  ligarEventos(ctx);
+}
+
+function atualizarPainelResultados(ctx) {
+  const painel = ctx.container.querySelector('#painel-resultados');
+  const semAltura = ctx.medicoes.filter((m) => !m.falha && m.altura == null).length;
+  const comAltura = ctx.medicoes.filter((m) => !m.falha && m.altura != null).length;
+  const falhas = ctx.medicoes.filter((m) => m.falha).length;
+
+  const validas = medicoesValidasComDap(ctx.medicoes);
+  const deficit = classesComDeficitDeAltura(validas, LIMIAR_DEFICIT);
+
+  painel.innerHTML = `
+    <p class="contador">
+      Sem altura: <strong>${semAltura}</strong> ·
+      Com altura: <strong>${comAltura}</strong> ·
+      Falhas: <strong>${falhas}</strong>
+    </p>
+    ${
+      deficit.length > 0
+        ? `<div class="alerta-deficit">
+            <strong>Priorize altura nas classes:</strong>
+            ${deficit.map((c) => `<span class="chip">${c.label} cm (${c.diferenca.toFixed(1)} pp)</span>`).join(' ')}
+          </div>`
+        : ''
+    }
+  `;
+}
+
+function ligarEventos(ctx) {
+  const $ = (sel) => ctx.container.querySelector(sel);
+
+  $('#forma').addEventListener('change', async (e) => {
+    const forma = e.target.value;
+    $('#campos-retangular').hidden = forma !== 'retangular';
+    $('#campos-circular').hidden = forma !== 'circular';
+    await salvarConfig(ctx);
+  });
+
+  ['#comprimento', '#largura', '#raio'].forEach((sel) => {
+    $(sel)?.addEventListener('change', () => salvarConfig(ctx));
+  });
+
+  // Editar CAP/altura cancela qualquer confirmação pendente (seção 5 do log).
+  $('#cap').addEventListener('input', () => {
+    ctx.pendente = null;
+  });
+  $('#altura').addEventListener('input', () => {
+    ctx.pendente = null;
+  });
+
+  $('#form-medicao').addEventListener('submit', (e) => {
+    e.preventDefault();
+    tentarAdicionarMedicao(ctx);
+  });
+
+  $('#btn-desfazer').addEventListener('click', async () => {
+    const removida = await db.desfazerUltimaMedicao(ctx.parcela.id);
+    if (removida) {
+      ctx.medicoes = await db.getMedicoesDaParcela(ctx.parcela.id);
+      render(ctx);
+    }
+  });
+
+  $('#btn-finalizar-parcela').addEventListener('click', async () => {
+    await db.finalizarParcela(ctx.parcela.id);
+    const ultima = ctx.parcela;
+    ctx.parcela = await db.criarParcela(ctx.talhao.id, {
+      forma: ultima.forma,
+      comprimento: ultima.comprimento,
+      largura: ultima.largura,
+      raio: ultima.raio,
+    });
+    await db.setMeta({ parcelaAtualId: ctx.parcela.id });
+    ctx.medicoes = [];
+    ctx.pendente = null;
+    render(ctx);
+  });
+
+  $('#btn-concluir-talhao').addEventListener('click', async () => {
+    await db.finalizarParcela(ctx.parcela.id);
+    await db.concluirTalhao(ctx.talhao.id);
+    const ultimaParcela = ctx.parcela;
+    ctx.talhao = await db.criarTalhao(ctx.fazenda.id);
+    ctx.parcela = await db.criarParcela(ctx.talhao.id, {
+      forma: ultimaParcela.forma,
+      comprimento: ultimaParcela.comprimento,
+      largura: ultimaParcela.largura,
+      raio: ultimaParcela.raio,
+    });
+    await db.setMeta({ talhaoAtualId: ctx.talhao.id, parcelaAtualId: ctx.parcela.id });
+    ctx.medicoes = [];
+    ctx.pendente = null;
+    render(ctx);
+  });
+
+  $('#btn-exportar').addEventListener('click', () => exportarBackup());
+
+  $('#input-importar').addEventListener('change', async (e) => {
+    const arquivo = e.target.files[0];
+    if (!arquivo) return;
+    const ok = window.confirm(
+      'Importar este backup vai SUBSTITUIR todos os dados atuais do aparelho. Continuar?'
+    );
+    if (!ok) return;
+    await importarBackupDeArquivo(arquivo);
+    await db.setMeta({ talhaoAtualId: null, parcelaAtualId: null });
+    await carregarOuCriarTalhaoEParcela(ctx);
+    ctx.pendente = null;
+    render(ctx);
+  });
+}
+
+async function salvarConfig(ctx) {
+  const $ = (sel) => ctx.container.querySelector(sel);
+  const forma = $('#forma').value;
+  const comprimento = forma === 'retangular' ? Number($('#comprimento').value) || null : null;
+  const largura = forma === 'retangular' ? Number($('#largura').value) || null : null;
+  const raio = forma === 'circular' ? Number($('#raio').value) || null : null;
+  ctx.parcela = await db.atualizarConfigParcela(ctx.parcela.id, { forma, comprimento, largura, raio });
+  $('#area-calculada').textContent = ctx.parcela.area ? ctx.parcela.area.toFixed(1) + ' m²' : '—';
+}
+
+async function tentarAdicionarMedicao(ctx) {
+  const $ = (sel) => ctx.container.querySelector(sel);
+  const msg = $('#msg-validacao');
+  const mostrarMsg = (texto) => {
+    msg.textContent = texto;
+    msg.hidden = false;
+  };
+
+  if (!ctx.parcela.area || ctx.parcela.area <= 0) {
+    mostrarMsg('Preencha as dimensões da parcela antes de adicionar medições.');
+    return;
+  }
+
+  const linha = Number($('#linha').value);
+  const arvore = Number($('#arvore').value);
+  const capTexto = $('#cap').value;
+  const alturaTexto = $('#altura').value;
+  const toggle130 = $('#toggle130').checked;
+  const qualidadeSelecionada = Number($('#qualidade').value);
+
+  const resultadoCap = validarCap(capTexto);
+  if (resultadoCap.status === 'invalido') {
+    mostrarMsg(resultadoCap.mensagem);
+    return;
+  }
+  if (resultadoCap.status === 'bloqueado') {
+    ctx.pendente = null;
+    mostrarMsg(resultadoCap.mensagem);
+    return;
+  }
+
+  const falha = resultadoCap.status === 'falha' || qualidadeSelecionada === 5;
+
+  let resultadoAltura = { status: 'ok', valor: null, mensagem: '' };
+  if (!falha) {
+    resultadoAltura = validarAltura(alturaTexto, toggle130);
+    if (resultadoAltura.status === 'invalido') {
+      mostrarMsg(resultadoAltura.mensagem);
+      return;
+    }
+    if (resultadoAltura.status === 'bloqueado') {
+      ctx.pendente = null;
+      mostrarMsg(resultadoAltura.mensagem);
+      return;
+    }
+  }
+
+  const precisaConfirmar = resultadoCap.status === 'alerta' || resultadoAltura.status === 'alerta';
+  const jaConfirmado =
+    ctx.pendente && ctx.pendente.capTexto === capTexto && ctx.pendente.alturaTexto === alturaTexto;
+
+  if (precisaConfirmar && !jaConfirmado) {
+    ctx.pendente = { capTexto, alturaTexto };
+    mostrarMsg(
+      [resultadoCap.mensagem, resultadoAltura.mensagem].filter(Boolean).join(' ') +
+        ' Clique em "Adicionar medição" novamente para confirmar.'
+    );
+    return;
+  }
+
+  await db.addMedicao({
+    parcelaId: ctx.parcela.id,
+    linha,
+    arvore,
+    cap: falha ? 0 : resultadoCap.valor,
+    altura: falha ? null : resultadoAltura.valor,
+    qualidade: falha ? 5 : qualidadeSelecionada,
+    falha,
+  });
+
+  ctx.medicoes = await db.getMedicoesDaParcela(ctx.parcela.id);
+  ctx.pendente = null;
+  msg.hidden = true;
+
+  const proxima = proximaLinhaEArvore(ctx);
+  $('#linha').value = proxima.linha;
+  $('#arvore').value = proxima.arvore;
+  $('#cap').value = '';
+  $('#altura').value = '';
+  $('#cap').focus();
+
+  atualizarPainelResultados(ctx);
+}
