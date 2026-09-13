@@ -3,6 +3,7 @@ import { initColeta } from './screens/coleta.js';
 import { initParcelas } from './screens/parcelas.js';
 import { initTalhoes } from './screens/talhoes.js';
 import { initProjetos } from './screens/projetos.js';
+import { registrarServiceWorker } from './atualizacao.js';
 
 const TELAS = {
   coleta: { titulo: 'Coleta', init: initColeta },
@@ -62,10 +63,6 @@ async function mostrarTela(chave) {
 
 btnTrocarProjeto.addEventListener('click', mostrarHome);
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  });
-}
+registrarServiceWorker();
 
 main();

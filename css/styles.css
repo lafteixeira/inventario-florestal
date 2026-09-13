@@ -472,6 +472,12 @@ td input, td select {
   margin-top: -0.4rem;
 }
 
+.versao-app {
+  font-size: 0.85rem;
+  color: #666;
+  margin: 0 0 0.4rem;
+}
+
 #lista-projetos {
   display: flex;
   flex-direction: column;

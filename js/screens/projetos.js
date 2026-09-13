@@ -1,9 +1,16 @@
 import * as db from '../db.js';
 import { exportarBackup, exportarBackupDaFazenda, importarBackupDeArquivo } from '../export.js';
 import { confirmar } from '../confirmacao.js';
+import { VERSAO } from '../versao.js';
+import { verificarAtualizacoes, aplicarAtualizacao, temAtualizacaoDisponivel } from '../atualizacao.js';
 
 export async function initProjetos(container, { onAbrirProjeto }) {
-  const ctx = { container, onAbrirProjeto, mostrandoForm: false };
+  const ctx = {
+    container,
+    onAbrirProjeto,
+    mostrandoForm: false,
+    statusAtualizacao: temAtualizacaoDisponivel() ? 'disponivel' : null,
+  };
   await render(ctx);
 }
 
@@ -34,10 +41,44 @@ async function render(ctx) {
           <input id="input-importar-tudo" type="file" accept="application/json" hidden>
         </label>
       </div>
+
+      <h3>Sobre o app</h3>
+      <p class="versao-app">Inventário Florestal · versão ${VERSAO}</p>
+      ${renderStatusAtualizacao(ctx)}
     </section>
   `;
 
   ligarEventos(ctx);
+}
+
+function renderStatusAtualizacao(ctx) {
+  if (ctx.statusAtualizacao === 'disponivel') {
+    return `
+      <p class="ajuda">Uma versão nova já foi baixada e está pronta.</p>
+      <div class="acoes">
+        <button type="button" id="btn-aplicar-atualizacao">Atualizar agora</button>
+      </div>
+    `;
+  }
+  if (ctx.statusAtualizacao === 'verificando') {
+    return `<p class="ajuda">Verificando...</p>`;
+  }
+  if (ctx.statusAtualizacao === 'atualizado') {
+    return `
+      <p class="ajuda">Você já está na versão mais recente.</p>
+      <div class="acoes"><button type="button" id="btn-verificar-atualizacoes">Verificar de novo</button></div>
+    `;
+  }
+  if (ctx.statusAtualizacao === 'offline') {
+    return `
+      <p class="ajuda">Não foi possível verificar agora (sem conexão?).</p>
+      <div class="acoes"><button type="button" id="btn-verificar-atualizacoes">Tentar de novo</button></div>
+    `;
+  }
+  return `
+    <p class="ajuda">A atualização nunca acontece sozinha — só quando você pedir aqui.</p>
+    <div class="acoes"><button type="button" id="btn-verificar-atualizacoes">Verificar atualizações</button></div>
+  `;
 }
 
 async function cartaoProjeto(fazenda) {
@@ -147,5 +188,23 @@ function ligarEventos(ctx) {
     await importarBackupDeArquivo(arquivo);
     ctx.mostrandoForm = false;
     render(ctx);
+  });
+
+  $('#btn-verificar-atualizacoes')?.addEventListener('click', async () => {
+    ctx.statusAtualizacao = 'verificando';
+    render(ctx);
+    const resultado = await verificarAtualizacoes();
+    if (!resultado.suportado) {
+      ctx.statusAtualizacao = 'atualizado'; // navegador sem suporte a SW — não há o que oferecer
+    } else if (resultado.offline) {
+      ctx.statusAtualizacao = 'offline';
+    } else {
+      ctx.statusAtualizacao = resultado.disponivel ? 'disponivel' : 'atualizado';
+    }
+    render(ctx);
+  });
+
+  $('#btn-aplicar-atualizacao')?.addEventListener('click', () => {
+    aplicarAtualizacao();
   });
 }
