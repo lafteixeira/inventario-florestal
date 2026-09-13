@@ -5,7 +5,11 @@ PORT = int(os.environ.get("PORT", 8420))
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
-    pass
+    # Sem cache: evita servir JS desatualizado durante o desenvolvimento local
+    # (o Service Worker cacheia por cima, e cache duplo confunde os testes).
+    def end_headers(self):
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
 
 
 class Server(http.server.ThreadingHTTPServer):

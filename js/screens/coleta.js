@@ -4,8 +4,12 @@ import { medicoesValidasComDap, classesComDeficitDeAltura } from '../stats.js';
 
 const LIMIAR_DEFICIT = 3;
 
+function rotuloTalhao(talhao) {
+  return talhao.nome || `Talhão ${talhao.numero}`;
+}
+
 export async function initColeta(container, fazenda) {
-  const ctx = { container, fazenda, talhao: null, parcela: null, medicoes: [], pendente: null };
+  const ctx = { container, fazenda, talhao: null, parcela: null, medicoes: [], medicoesTalhao: [], pendente: null };
   await carregarOuCriarTalhaoEParcela(ctx);
   render(ctx);
 }
@@ -26,6 +30,7 @@ async function carregarOuCriarTalhaoEParcela(ctx) {
   }
 
   ctx.medicoes = await db.getMedicoesDaParcela(ctx.parcela.id);
+  ctx.medicoesTalhao = await db.getMedicoesDoTalhao(ctx.talhao.id);
 }
 
 function proximaLinhaEArvore(ctx) {
@@ -37,11 +42,29 @@ function proximaLinhaEArvore(ctx) {
 function render(ctx) {
   const { forma, comprimento, largura, raio, area } = ctx.parcela;
   const configTravada = ctx.medicoes.length > 0;
+  const talhaoTravado = ctx.medicoesTalhao.length > 0;
   const { linha, arvore } = proximaLinhaEArvore(ctx);
+  const t = ctx.talhao;
 
   ctx.container.innerHTML = `
     <section class="painel">
-      <h2>Talhão ${ctx.talhao.numero} · Parcela ${ctx.parcela.numero}</h2>
+      <h2>${rotuloTalhao(ctx.talhao)} · Parcela ${ctx.parcela.numero}</h2>
+
+      <fieldset id="config-talhao" ${talhaoTravado ? 'disabled' : ''}>
+        <legend>Cadastro do talhão ${talhaoTravado ? '(travado — já há medições)' : ''}</legend>
+        <label>Nome <input id="t-nome" type="text" placeholder="Talhão ${t.numero}" value="${t.nome ?? ''}"></label>
+        <div class="linha-campos">
+          <label>Área (ha) <input id="t-area" type="number" step="0.01" min="0" value="${t.area ?? ''}"></label>
+          <label>Rotação <input id="t-rotacao" type="text" value="${t.rotacao ?? ''}"></label>
+        </div>
+        <label>Material genético <input id="t-material" type="text" placeholder="ex: clone X" value="${t.materialGenetico ?? ''}"></label>
+        <div class="linha-campos">
+          <label>Espaçamento <input id="t-espacamento" type="text" placeholder="ex: 3x2 m" value="${t.espacamento ?? ''}"></label>
+          <label>Data de plantio <input id="t-data-plantio" type="date" value="${t.dataPlantio ?? ''}"></label>
+        </div>
+        <label>Regime silvicultural <input id="t-regime" type="text" placeholder="ex: alto fuste, talhadia" value="${t.regimeSilvicultural ?? ''}"></label>
+        <label>Observações <textarea id="t-observacoes" rows="2">${t.observacoes ?? ''}</textarea></label>
+      </fieldset>
 
       <fieldset id="config-parcela" ${configTravada ? 'disabled' : ''}>
         <legend>Configuração da parcela ${configTravada ? '(travada — já há medições)' : ''}</legend>
@@ -118,8 +141,8 @@ function atualizarPainelResultados(ctx) {
     ${
       deficit.length > 0
         ? `<div class="alerta-deficit">
-            <strong>Priorize altura nas classes:</strong>
-            ${deficit.map((c) => `<span class="chip">${c.label} cm (${c.diferenca.toFixed(1)} pp)</span>`).join(' ')}
+            <strong>Priorize altura nas classes de CAP:</strong>
+            ${deficit.map((c) => `<span class="chip">${c.labelCap} cm (${c.diferenca.toFixed(1)} pp)</span>`).join(' ')}
           </div>`
         : ''
     }
@@ -128,6 +151,10 @@ function atualizarPainelResultados(ctx) {
 
 function ligarEventos(ctx) {
   const $ = (sel) => ctx.container.querySelector(sel);
+
+  ['#t-nome', '#t-area', '#t-rotacao', '#t-material', '#t-espacamento', '#t-data-plantio', '#t-regime', '#t-observacoes'].forEach((sel) => {
+    $(sel)?.addEventListener('change', () => salvarConfigTalhao(ctx));
+  });
 
   $('#forma').addEventListener('change', async (e) => {
     const forma = e.target.value;
@@ -157,6 +184,7 @@ function ligarEventos(ctx) {
     const removida = await db.desfazerUltimaMedicao(ctx.parcela.id);
     if (removida) {
       ctx.medicoes = await db.getMedicoesDaParcela(ctx.parcela.id);
+      ctx.medicoesTalhao = await db.getMedicoesDoTalhao(ctx.talhao.id);
       render(ctx);
     }
   });
@@ -187,9 +215,25 @@ function ligarEventos(ctx) {
       raio: ultimaParcela.raio,
     });
     ctx.medicoes = [];
+    ctx.medicoesTalhao = [];
     ctx.pendente = null;
     render(ctx);
   });
+}
+
+async function salvarConfigTalhao(ctx) {
+  const $ = (sel) => ctx.container.querySelector(sel);
+  ctx.talhao = await db.atualizarCadastroTalhao(ctx.talhao.id, {
+    nome: $('#t-nome').value.trim(),
+    area: Number($('#t-area').value) || null,
+    materialGenetico: $('#t-material').value.trim(),
+    espacamento: $('#t-espacamento').value.trim(),
+    regimeSilvicultural: $('#t-regime').value.trim(),
+    dataPlantio: $('#t-data-plantio').value || null,
+    rotacao: $('#t-rotacao').value.trim(),
+    observacoes: $('#t-observacoes').value.trim(),
+  });
+  ctx.container.querySelector('h2').textContent = `${rotuloTalhao(ctx.talhao)} · Parcela ${ctx.parcela.numero}`;
 }
 
 async function salvarConfig(ctx) {
@@ -273,6 +317,7 @@ async function tentarAdicionarMedicao(ctx) {
   });
 
   ctx.medicoes = await db.getMedicoesDaParcela(ctx.parcela.id);
+  ctx.medicoesTalhao = await db.getMedicoesDoTalhao(ctx.talhao.id);
   ctx.pendente = null;
   msg.hidden = true;
 

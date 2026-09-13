@@ -116,12 +116,13 @@ label {
   flex: 1;
 }
 
-input, select {
+input, select, textarea {
   font-size: 1.1rem;
   padding: 0.6rem;
   border: 1px solid var(--borda);
   border-radius: 8px;
   width: 100%;
+  font-family: inherit;
 }
 
 .toggle {
@@ -246,6 +247,33 @@ th, td {
 .tabela-stat td:last-child {
   text-align: right;
   font-weight: 600;
+}
+
+.toggle-unidade {
+  display: flex;
+}
+
+.btn-unidade {
+  width: auto;
+  flex: 1;
+  background: #eef2ef;
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: 0;
+}
+
+.btn-unidade:first-child {
+  border-radius: 8px 0 0 8px;
+}
+
+.btn-unidade:last-child {
+  border-radius: 0 8px 8px 0;
+  border-left: none;
+}
+
+.btn-unidade.ativa {
+  background: var(--verde);
+  color: white;
 }
 
 .grid-stats {

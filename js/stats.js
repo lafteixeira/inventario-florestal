@@ -13,6 +13,13 @@ export function classeLabel(inicioClasse, amplitude = AMPLITUDE_CLASSE) {
   return `${inicioClasse}-${inicioClasse + amplitude}`;
 }
 
+// Mesma classe (definida em DAP), rotulada em CAP — o que o operador mede em campo.
+export function classeLabelCap(inicioClasse, amplitude = AMPLITUDE_CLASSE) {
+  const inicioCap = Math.round(inicioClasse * Math.PI);
+  const fimCap = Math.round((inicioClasse + amplitude) * Math.PI);
+  return `${inicioCap}-${fimCap}`;
+}
+
 // Medições válidas (não-falha) com DAP calculado, para uso pelas funções abaixo.
 export function medicoesValidasComDap(medicoes) {
   return medicoes
@@ -37,6 +44,7 @@ export function distribuicaoPercentual(itens) {
   return classes.map((classe) => ({
     classe,
     label: classeLabel(classe),
+    labelCap: classeLabelCap(classe),
     percentual: total > 0 ? (contagem.get(classe) / total) * 100 : 0,
     quantidade: contagem.get(classe),
   }));
@@ -64,6 +72,7 @@ export function classesComDeficitDeAltura(medicoesValidas, limiar = 3) {
       return {
         classe,
         label: classeLabel(classe),
+        labelCap: classeLabelCap(classe),
         pctTodas,
         pctComAltura,
         diferenca: pctTodas - pctComAltura,

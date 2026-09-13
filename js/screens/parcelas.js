@@ -17,11 +17,15 @@ function nomeQualidade(id) {
   return QUALIDADES.find((q) => q.id === id)?.nome ?? '—';
 }
 
+function rotuloTalhao(talhao) {
+  return talhao.nome || `Talhão ${talhao.numero}`;
+}
+
 export async function initParcelas(container, fazenda) {
   const talhao =
     (await db.getTalhaoEmAndamento(fazenda.id)) || (await db.getTalhoesDaFazenda(fazenda.id)).at(-1);
 
-  const ctx = { container, fazenda, talhao, parcelas: [], parcelaSelecionadaId: null, editandoId: null };
+  const ctx = { container, fazenda, talhao, parcelas: [], parcelaSelecionadaId: null, editandoId: null, unidade: 'dap' };
 
   if (!talhao) {
     container.innerHTML = '<section class="painel"><p>Nenhum talhão iniciado ainda.</p></section>';
@@ -50,27 +54,35 @@ async function render(ctx) {
 
   ctx.container.innerHTML = `
     <section class="painel">
-      <h2>Parcelas · Talhão ${ctx.talhao.numero}</h2>
+      <h2>Parcelas · ${rotuloTalhao(ctx.talhao)}</h2>
       <p class="contador">
         Parcelas: <strong>${comDados.length}</strong>
         (${ctx.parcelas.filter((p) => p.status === 'concluida').length} concluídas) ·
         Árvores válidas: <strong>${totalValidas}</strong> · Falhas: <strong>${totalFalhas}</strong>
       </p>
 
-      <label>Parcela
-        <select id="seletor-parcela">
-          ${ctx.parcelas
-            .map(
-              (p) =>
-                `<option value="${p.id}" ${p.id === ctx.parcelaSelecionadaId ? 'selected' : ''}>
-                  Parcela ${p.numero} ${p.status === 'em_andamento' ? '(em andamento)' : ''}
-                </option>`
-            )
-            .join('')}
-        </select>
-      </label>
+      <div class="linha-campos">
+        <label>Parcela
+          <select id="seletor-parcela">
+            ${ctx.parcelas
+              .map(
+                (p) =>
+                  `<option value="${p.id}" ${p.id === ctx.parcelaSelecionadaId ? 'selected' : ''}>
+                    Parcela ${p.numero} ${p.status === 'em_andamento' ? '(em andamento)' : ''}
+                  </option>`
+              )
+              .join('')}
+          </select>
+        </label>
+        <label>Unidade das estatísticas
+          <div class="toggle-unidade">
+            <button type="button" class="btn-unidade ${ctx.unidade === 'dap' ? 'ativa' : ''}" data-unidade="dap">DAP</button>
+            <button type="button" class="btn-unidade ${ctx.unidade === 'cap' ? 'ativa' : ''}" data-unidade="cap">CAP</button>
+          </div>
+        </label>
+      </div>
 
-      ${parcelaSelecionada ? renderAnalise(parcelaSelecionada, medicoes) : '<p>Sem parcelas.</p>'}
+      ${parcelaSelecionada ? renderAnalise(parcelaSelecionada, medicoes, ctx.unidade) : '<p>Sem parcelas.</p>'}
     </section>
   `;
 
@@ -80,18 +92,27 @@ async function render(ctx) {
     render(ctx);
   });
 
+  ctx.container.querySelectorAll('.btn-unidade').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      ctx.unidade = btn.dataset.unidade;
+      render(ctx);
+    });
+  });
+
   if (parcelaSelecionada) {
     ligarEventosTabela(ctx, medicoes);
   }
 }
 
-function renderAnalise(parcela, medicoes) {
+function renderAnalise(parcela, medicoes, unidade) {
   const stats = estatisticasParcela(medicoes);
   const validas = medicoesValidasComDap(medicoes);
   const comAltura = validas.filter((m) => m.altura != null);
   const distSoDap = distribuicaoPercentual(validas);
   const distComAltura = distribuicaoPercentual(comAltura);
   const deficit = classesComDeficitDeAltura(validas, LIMIAR_DEFICIT);
+  const fator = unidade === 'cap' ? Math.PI : 1;
+  const rotulo = unidade === 'cap' ? 'CAP' : 'DAP';
 
   return `
     <p>Área: <strong>${fmt(parcela.area, 1)} m²</strong></p>
@@ -99,25 +120,25 @@ function renderAnalise(parcela, medicoes) {
     <div class="grid-stats">
       <div class="cartao-stat">
         <h3>Só CAP (sem altura)</h3>
-        ${tabelaStat(stats.soCap, 'DAP médio (cm)')}
+        ${tabelaStat(stats.soCap, `${rotulo} médio (cm)`, fator)}
       </div>
       <div class="cartao-stat">
         <h3>CAP + altura</h3>
-        ${tabelaStat(stats.comAltura, 'DAP médio (cm)')}
+        ${tabelaStat(stats.comAltura, `${rotulo} médio (cm)`, fator)}
       </div>
       <div class="cartao-stat">
         <h3>Altura média</h3>
-        ${tabelaStat(stats.alturaMedia, 'Altura média (m)')}
+        ${tabelaStat(stats.alturaMedia, 'Altura média (m)', 1)}
       </div>
     </div>
 
-    ${renderHistograma(distSoDap, distComAltura)}
+    ${renderHistograma(distSoDap, distComAltura, unidade)}
 
     ${
       deficit.length > 0
         ? `<div class="alerta-deficit">
-            <strong>Priorize altura nas classes:</strong>
-            ${deficit.map((c) => `<span class="chip">${c.label} cm (${c.diferenca.toFixed(1)} pp)</span>`).join(' ')}
+            <strong>Priorize altura nas classes de CAP:</strong>
+            ${deficit.map((c) => `<span class="chip">${c.labelCap} cm (${c.diferenca.toFixed(1)} pp)</span>`).join(' ')}
           </div>`
         : ''
     }
@@ -139,19 +160,19 @@ function renderAnalise(parcela, medicoes) {
   `;
 }
 
-function tabelaStat(s, labelMedia) {
+function tabelaStat(s, labelMedia, fator = 1) {
   return `
     <table class="tabela-stat">
       <tr><td>n</td><td>${s.n}</td></tr>
-      <tr><td>${labelMedia}</td><td>${fmt(s.media, 1)}</td></tr>
-      <tr><td>Desvio padrão</td><td>${fmt(s.desvio, 2)}</td></tr>
+      <tr><td>${labelMedia}</td><td>${fmt(s.media != null ? s.media * fator : null, 1)}</td></tr>
+      <tr><td>Desvio padrão</td><td>${fmt(s.desvio != null ? s.desvio * fator : null, 2)}</td></tr>
       <tr><td>CV%</td><td>${fmt(s.cv, 1)}</td></tr>
       <tr><td>Erro amostral (E%)</td><td>${fmt(s.erro, 1)}</td></tr>
     </table>
   `;
 }
 
-function renderHistograma(distSoDap, distComAltura) {
+function renderHistograma(distSoDap, distComAltura, unidade) {
   const classes = [...new Set([...distSoDap.map((c) => c.classe), ...distComAltura.map((c) => c.classe)])].sort(
     (a, b) => a - b
   );
@@ -163,15 +184,18 @@ function renderHistograma(distSoDap, distComAltura) {
   const larguraSlot = 56;
   const larguraBarra = 20;
   const largura = classes.length * larguraSlot + 20;
+  const rotulo = unidade === 'cap' ? 'CAP' : 'DAP';
 
   const barras = classes
     .map((classe, i) => {
-      const pct1 = distSoDap.find((c) => c.classe === classe)?.percentual ?? 0;
-      const pct2 = distComAltura.find((c) => c.classe === classe)?.percentual ?? 0;
+      const entradaSoDap = distSoDap.find((c) => c.classe === classe);
+      const entradaComAltura = distComAltura.find((c) => c.classe === classe);
+      const pct1 = entradaSoDap?.percentual ?? 0;
+      const pct2 = entradaComAltura?.percentual ?? 0;
       const x = 10 + i * larguraSlot;
       const h1 = (pct1 / escalaMax) * alturaGrafico;
       const h2 = (pct2 / escalaMax) * alturaGrafico;
-      const label = classe + '-' + (classe + 2);
+      const label = unidade === 'cap' ? entradaSoDap?.labelCap ?? entradaComAltura?.labelCap : classe + '-' + (classe + 2);
       return `
         <rect x="${x}" y="${alturaGrafico - h1}" width="${larguraBarra}" height="${h1}" fill="var(--verde)" fill-opacity="0.55"></rect>
         <rect x="${x}" y="${alturaGrafico - h2}" width="${larguraBarra}" height="${h2}" fill="none" stroke="var(--verde)" stroke-width="2"></rect>
@@ -183,8 +207,8 @@ function renderHistograma(distSoDap, distComAltura) {
   return `
     <h3>Distribuição diamétrica relativa (%)</h3>
     <p class="legenda-histograma">
-      <span class="chip-legenda solido"></span> Só DAP (toda a parcela)
-      <span class="chip-legenda contorno"></span> DAP + altura
+      <span class="chip-legenda solido"></span> Só ${rotulo} (toda a parcela)
+      <span class="chip-legenda contorno"></span> ${rotulo} + altura
     </p>
     <svg viewBox="0 0 ${largura} ${alturaGrafico + 28}" class="histograma">${barras}</svg>
   `;

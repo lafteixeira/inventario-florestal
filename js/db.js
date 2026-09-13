@@ -169,7 +169,7 @@ export async function getTalhaoEmAndamento(fazendaId) {
   return maiorNumero(todos.filter((t) => t.status === 'em_andamento'));
 }
 
-export async function criarTalhao(fazendaId) {
+export async function criarTalhao(fazendaId, cadastro = {}) {
   const db = await abrirDB();
   const numero = await getProximoNumeroTalhao(fazendaId);
   const talhao = {
@@ -179,9 +179,37 @@ export async function criarTalhao(fazendaId) {
     status: 'em_andamento',
     dataInicio: new Date().toISOString(),
     dataConclusao: null,
+    nome: cadastro.nome || null,
+    area: cadastro.area ?? null,
+    materialGenetico: cadastro.materialGenetico || null,
+    espacamento: cadastro.espacamento || null,
+    regimeSilvicultural: cadastro.regimeSilvicultural || null,
+    dataPlantio: cadastro.dataPlantio || null,
+    rotacao: cadastro.rotacao || null,
+    observacoes: cadastro.observacoes || null,
   };
   const t = tx(db, ['talhoes'], 'readwrite');
   t.objectStore('talhoes').add(talhao);
+  return new Promise((resolve, reject) => {
+    t.oncomplete = () => resolve(talhao);
+    t.onerror = () => reject(t.error);
+  });
+}
+
+export async function atualizarCadastroTalhao(talhaoId, cadastro) {
+  const db = await abrirDB();
+  const t = tx(db, ['talhoes'], 'readwrite');
+  const store = t.objectStore('talhoes');
+  const talhao = await reqAsPromise(store.get(talhaoId));
+  talhao.nome = cadastro.nome || null;
+  talhao.area = cadastro.area ?? null;
+  talhao.materialGenetico = cadastro.materialGenetico || null;
+  talhao.espacamento = cadastro.espacamento || null;
+  talhao.regimeSilvicultural = cadastro.regimeSilvicultural || null;
+  talhao.dataPlantio = cadastro.dataPlantio || null;
+  talhao.rotacao = cadastro.rotacao || null;
+  talhao.observacoes = cadastro.observacoes || null;
+  store.put(talhao);
   return new Promise((resolve, reject) => {
     t.oncomplete = () => resolve(talhao);
     t.onerror = () => reject(t.error);
