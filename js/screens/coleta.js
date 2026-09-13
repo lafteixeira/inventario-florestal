@@ -1,7 +1,6 @@
 import * as db from '../db.js';
 import { validarCap, validarAltura, QUALIDADES } from '../validation.js';
 import { medicoesValidasComDap, classesComDeficitDeAltura } from '../stats.js';
-import { exportarBackup, importarBackupDeArquivo } from '../export.js';
 
 const LIMIAR_DEFICIT = 3;
 
@@ -12,26 +11,18 @@ export async function initColeta(container, fazenda) {
 }
 
 async function carregarOuCriarTalhaoEParcela(ctx) {
-  const meta = await db.getMeta();
-
-  ctx.talhao = meta.talhaoAtualId ? await db.getTalhao(meta.talhaoAtualId) : null;
+  ctx.talhao = await db.getTalhaoEmAndamento(ctx.fazenda.id);
   if (!ctx.talhao) {
     ctx.talhao = await db.criarTalhao(ctx.fazenda.id);
-    await db.setMeta({ talhaoAtualId: ctx.talhao.id });
   }
 
-  ctx.parcela = meta.parcelaAtualId ? await db.getParcela(meta.parcelaAtualId) : null;
-  if (ctx.parcela && ctx.parcela.talhaoId !== ctx.talhao.id) {
-    // Estado inconsistente (ex.: importação de backup) — não usar parcela de outro talhão.
-    ctx.parcela = null;
-  }
+  ctx.parcela = await db.getParcelaEmAndamento(ctx.talhao.id);
   if (!ctx.parcela) {
-    const ultima = await db.getUltimaParcelaCriada();
+    const ultima = await db.getUltimaParcelaCriada(ctx.fazenda.id);
     const configPrefill = ultima
       ? { forma: ultima.forma, comprimento: ultima.comprimento, largura: ultima.largura, raio: ultima.raio }
       : { forma: 'retangular', comprimento: null, largura: null, raio: null };
     ctx.parcela = await db.criarParcela(ctx.talhao.id, configPrefill);
-    await db.setMeta({ parcelaAtualId: ctx.parcela.id });
   }
 
   ctx.medicoes = await db.getMedicoesDaParcela(ctx.parcela.id);
@@ -101,13 +92,6 @@ function render(ctx) {
         <button id="btn-desfazer" type="button">Desfazer última medição</button>
         <button id="btn-finalizar-parcela" type="button">Finalizar parcela</button>
         <button id="btn-concluir-talhao" type="button">Concluir talhão</button>
-      </div>
-      <div class="acoes">
-        <button id="btn-exportar" type="button">Exportar backup</button>
-        <label class="botao-arquivo">
-          Importar backup
-          <input id="input-importar" type="file" accept="application/json" hidden>
-        </label>
       </div>
     </section>
   `;
@@ -186,7 +170,6 @@ function ligarEventos(ctx) {
       largura: ultima.largura,
       raio: ultima.raio,
     });
-    await db.setMeta({ parcelaAtualId: ctx.parcela.id });
     ctx.medicoes = [];
     ctx.pendente = null;
     render(ctx);
@@ -203,24 +186,7 @@ function ligarEventos(ctx) {
       largura: ultimaParcela.largura,
       raio: ultimaParcela.raio,
     });
-    await db.setMeta({ talhaoAtualId: ctx.talhao.id, parcelaAtualId: ctx.parcela.id });
     ctx.medicoes = [];
-    ctx.pendente = null;
-    render(ctx);
-  });
-
-  $('#btn-exportar').addEventListener('click', () => exportarBackup());
-
-  $('#input-importar').addEventListener('change', async (e) => {
-    const arquivo = e.target.files[0];
-    if (!arquivo) return;
-    const ok = window.confirm(
-      'Importar este backup vai SUBSTITUIR todos os dados atuais do aparelho. Continuar?'
-    );
-    if (!ok) return;
-    await importarBackupDeArquivo(arquivo);
-    await db.setMeta({ talhaoAtualId: null, parcelaAtualId: null });
-    await carregarOuCriarTalhaoEParcela(ctx);
     ctx.pendente = null;
     render(ctx);
   });

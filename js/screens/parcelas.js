@@ -18,10 +18,8 @@ function nomeQualidade(id) {
 }
 
 export async function initParcelas(container, fazenda) {
-  const meta = await db.getMeta();
-  const talhao = meta.talhaoAtualId
-    ? await db.getTalhao(meta.talhaoAtualId)
-    : (await db.getTalhoesDaFazenda(fazenda.id)).at(-1);
+  const talhao =
+    (await db.getTalhaoEmAndamento(fazenda.id)) || (await db.getTalhoesDaFazenda(fazenda.id)).at(-1);
 
   const ctx = { container, fazenda, talhao, parcelas: [], parcelaSelecionadaId: null, editandoId: null };
 
@@ -31,7 +29,8 @@ export async function initParcelas(container, fazenda) {
   }
 
   ctx.parcelas = await db.getParcelasDoTalhao(talhao.id);
-  ctx.parcelaSelecionadaId = meta.parcelaAtualId || ctx.parcelas.at(-1)?.id || null;
+  const parcelaEmAndamento = await db.getParcelaEmAndamento(talhao.id);
+  ctx.parcelaSelecionadaId = parcelaEmAndamento?.id || ctx.parcelas.at(-1)?.id || null;
 
   await render(ctx);
 }

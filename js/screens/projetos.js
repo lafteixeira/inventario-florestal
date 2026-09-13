@@ -1,0 +1,136 @@
+import * as db from '../db.js';
+import { exportarBackup, exportarBackupDaFazenda, importarBackupDeArquivo } from '../export.js';
+
+export async function initProjetos(container, { onAbrirProjeto }) {
+  const ctx = { container, onAbrirProjeto, mostrandoForm: false };
+  await render(ctx);
+}
+
+async function render(ctx) {
+  const fazendas = await db.listarFazendas();
+  const cartoes = await Promise.all(fazendas.map(cartaoProjeto));
+
+  ctx.container.innerHTML = `
+    <section class="painel">
+      <h2>Projetos</h2>
+
+      <div class="acoes">
+        <button type="button" id="btn-novo-projeto">Criar novo projeto</button>
+      </div>
+
+      ${ctx.mostrandoForm ? formularioNovoProjeto() : ''}
+
+      <div id="lista-projetos">
+        ${fazendas.length === 0 ? '<p>Nenhum projeto cadastrado ainda.</p>' : cartoes.join('')}
+      </div>
+
+      <h3>Backup geral</h3>
+      <p class="ajuda">Exporta ou restaura todos os projetos de uma vez (uso ao trocar de aparelho).</p>
+      <div class="acoes">
+        <button type="button" id="btn-exportar-tudo">Exportar backup completo</button>
+        <label class="botao-arquivo">
+          Importar backup completo
+          <input id="input-importar-tudo" type="file" accept="application/json" hidden>
+        </label>
+      </div>
+    </section>
+  `;
+
+  ligarEventos(ctx);
+}
+
+async function cartaoProjeto(fazenda) {
+  const talhoes = await db.getTalhoesDaFazenda(fazenda.id);
+  const localizacao = [fazenda.municipio, fazenda.uf].filter(Boolean).join(' - ');
+  return `
+    <div class="cartao-projeto" data-id="${fazenda.id}">
+      <h3>${fazenda.nome}</h3>
+      ${localizacao ? `<p class="detalhes-projeto">${localizacao}</p>` : ''}
+      ${fazenda.contratante ? `<p class="detalhes-projeto">Contratante: ${fazenda.contratante}</p>` : ''}
+      <p class="detalhes-projeto">${talhoes.length} talhão(ões)</p>
+      <div class="acoes">
+        <button type="button" class="btn-abrir-projeto" data-id="${fazenda.id}">Abrir</button>
+        <button type="button" class="btn-exportar-projeto" data-id="${fazenda.id}">Exportar</button>
+      </div>
+    </div>
+  `;
+}
+
+function formularioNovoProjeto() {
+  return `
+    <form id="form-novo-projeto" class="painel-form">
+      <label>Nome da fazenda <input id="f-nome" type="text" required placeholder="ex: Fazenda Ibítira"></label>
+      <div class="linha-campos">
+        <label>Município <input id="f-municipio" type="text"></label>
+        <label>UF <input id="f-uf" type="text" maxlength="2"></label>
+      </div>
+      <label>Contratante/Cliente <input id="f-contratante" type="text"></label>
+      <label>Endereço <input id="f-endereco" type="text"></label>
+      <label>Responsável técnico <input id="f-responsavel" type="text"></label>
+      <div class="acoes">
+        <button type="submit">Criar projeto</button>
+        <button type="button" id="btn-cancelar-novo-projeto">Cancelar</button>
+      </div>
+    </form>
+  `;
+}
+
+function ligarEventos(ctx) {
+  const $ = (sel) => ctx.container.querySelector(sel);
+
+  $('#btn-novo-projeto').addEventListener('click', () => {
+    ctx.mostrandoForm = true;
+    render(ctx);
+  });
+
+  const formNovo = $('#form-novo-projeto');
+  if (formNovo) {
+    $('#btn-cancelar-novo-projeto').addEventListener('click', () => {
+      ctx.mostrandoForm = false;
+      render(ctx);
+    });
+
+    formNovo.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nome = $('#f-nome').value.trim();
+      if (!nome) return;
+      const fazenda = await db.criarFazenda({
+        nome,
+        municipio: $('#f-municipio').value.trim(),
+        uf: $('#f-uf').value.trim().toUpperCase(),
+        contratante: $('#f-contratante').value.trim(),
+        endereco: $('#f-endereco').value.trim(),
+        responsavelTecnico: $('#f-responsavel').value.trim(),
+      });
+      ctx.onAbrirProjeto(fazenda);
+    });
+  }
+
+  ctx.container.querySelectorAll('.btn-abrir-projeto').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const fazenda = await db.getFazenda(btn.dataset.id);
+      ctx.onAbrirProjeto(fazenda);
+    });
+  });
+
+  ctx.container.querySelectorAll('.btn-exportar-projeto').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const fazenda = await db.getFazenda(btn.dataset.id);
+      await exportarBackupDaFazenda(fazenda);
+    });
+  });
+
+  $('#btn-exportar-tudo').addEventListener('click', () => exportarBackup());
+
+  $('#input-importar-tudo').addEventListener('change', async (e) => {
+    const arquivo = e.target.files[0];
+    if (!arquivo) return;
+    const ok = window.confirm(
+      'Importar este backup vai SUBSTITUIR todos os projetos e dados atuais do aparelho. Continuar?'
+    );
+    if (!ok) return;
+    await importarBackupDeArquivo(arquivo);
+    ctx.mostrandoForm = false;
+    render(ctx);
+  });
+}

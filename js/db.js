@@ -1,5 +1,5 @@
 const DB_NAME = 'inventario-florestal';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise = null;
 
@@ -14,6 +14,8 @@ export function abrirDB() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
+      const tx = req.transaction;
+
       if (!db.objectStoreNames.contains('fazendas')) {
         db.createObjectStore('fazendas', { keyPath: 'id' });
       }
@@ -26,6 +28,7 @@ export function abrirDB() {
         const parcelas = db.createObjectStore('parcelas', { keyPath: 'id' });
         parcelas.createIndex('talhaoId', 'talhaoId');
         parcelas.createIndex('numero', 'numero');
+        parcelas.createIndex('fazendaId', 'fazendaId');
       }
       if (!db.objectStoreNames.contains('medicoes')) {
         const medicoes = db.createObjectStore('medicoes', { keyPath: 'id', autoIncrement: true });
@@ -34,6 +37,32 @@ export function abrirDB() {
       if (!db.objectStoreNames.contains('meta')) {
         db.createObjectStore('meta', { keyPath: 'chave' });
       }
+
+      // Migração v1 -> v2: parcelas criadas antes de existir suporte a múltiplos
+      // projetos não têm fazendaId — preenche a partir do talhão de cada uma.
+      const parcelasStore = tx.objectStore('parcelas');
+      if (!parcelasStore.indexNames.contains('fazendaId')) {
+        parcelasStore.createIndex('fazendaId', 'fazendaId');
+      }
+      const talhoesStore = tx.objectStore('talhoes');
+      parcelasStore.openCursor().onsuccess = (ev) => {
+        const cursor = ev.target.result;
+        if (!cursor) return;
+        const parcela = cursor.value;
+        if (parcela.fazendaId == null) {
+          const getTalhao = talhoesStore.get(parcela.talhaoId);
+          getTalhao.onsuccess = () => {
+            const talhao = getTalhao.result;
+            if (talhao) {
+              parcela.fazendaId = talhao.fazendaId;
+              cursor.update(parcela);
+            }
+            cursor.continue();
+          };
+        } else {
+          cursor.continue();
+        }
+      };
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -52,7 +81,12 @@ function reqAsPromise(req) {
   });
 }
 
-// ---------- meta (estado de sessão: talhão/parcela em andamento) ----------
+function maiorNumero(itens) {
+  if (itens.length === 0) return null;
+  return itens.reduce((a, b) => (a.numero > b.numero ? a : b));
+}
+
+// ---------- meta (estado de sessão: qual projeto está aberto) ----------
 
 export async function getMeta() {
   const db = await abrirDB();
@@ -73,18 +107,33 @@ export async function setMeta(parcial) {
   });
 }
 
-// ---------- fazendas ----------
+// ---------- fazendas (projetos) ----------
 
-export async function getFazendaAtual() {
+export async function getFazenda(id) {
+  const db = await abrirDB();
+  const t = tx(db, ['fazendas'], 'readonly');
+  return reqAsPromise(t.objectStore('fazendas').get(id));
+}
+
+export async function listarFazendas() {
   const db = await abrirDB();
   const t = tx(db, ['fazendas'], 'readonly');
   const todas = await reqAsPromise(t.objectStore('fazendas').getAll());
-  return todas[0] || null;
+  return todas.sort((a, b) => (b.criadoEm || '').localeCompare(a.criadoEm || ''));
 }
 
-export async function criarFazenda(nome) {
+export async function criarFazenda({ nome, municipio, uf, contratante, endereco, responsavelTecnico }) {
   const db = await abrirDB();
-  const fazenda = { id: gerarId(), nome };
+  const fazenda = {
+    id: gerarId(),
+    nome,
+    municipio: municipio || null,
+    uf: uf || null,
+    contratante: contratante || null,
+    endereco: endereco || null,
+    responsavelTecnico: responsavelTecnico || null,
+    criadoEm: new Date().toISOString(),
+  };
   const t = tx(db, ['fazendas'], 'readwrite');
   t.objectStore('fazendas').add(fazenda);
   return new Promise((resolve, reject) => {
@@ -101,18 +150,6 @@ export async function getTalhao(id) {
   return reqAsPromise(t.objectStore('talhoes').get(id));
 }
 
-async function getTodosTalhoes(db) {
-  const t = tx(db, ['talhoes'], 'readonly');
-  return reqAsPromise(t.objectStore('talhoes').getAll());
-}
-
-export async function getProximoNumeroTalhao() {
-  const db = await abrirDB();
-  const todos = await getTodosTalhoes(db);
-  if (todos.length === 0) return 1;
-  return Math.max(...todos.map((t) => t.numero)) + 1;
-}
-
 export async function getTalhoesDaFazenda(fazendaId) {
   const db = await abrirDB();
   const t = tx(db, ['talhoes'], 'readonly');
@@ -120,9 +157,21 @@ export async function getTalhoesDaFazenda(fazendaId) {
   return todos.sort((a, b) => a.numero - b.numero);
 }
 
+export async function getProximoNumeroTalhao(fazendaId) {
+  const todos = await getTalhoesDaFazenda(fazendaId);
+  const maior = maiorNumero(todos);
+  return maior ? maior.numero + 1 : 1;
+}
+
+// Talhão "em andamento" da fazenda (o de maior número com status em_andamento), ou null.
+export async function getTalhaoEmAndamento(fazendaId) {
+  const todos = await getTalhoesDaFazenda(fazendaId);
+  return maiorNumero(todos.filter((t) => t.status === 'em_andamento'));
+}
+
 export async function criarTalhao(fazendaId) {
   const db = await abrirDB();
-  const numero = await getProximoNumeroTalhao();
+  const numero = await getProximoNumeroTalhao(fazendaId);
   const talhao = {
     id: gerarId(),
     fazendaId,
@@ -179,23 +228,21 @@ export async function getParcela(id) {
   return reqAsPromise(t.objectStore('parcelas').get(id));
 }
 
-async function getTodasParcelas(db) {
+async function getParcelasDaFazenda(fazendaId) {
+  const db = await abrirDB();
   const t = tx(db, ['parcelas'], 'readonly');
-  return reqAsPromise(t.objectStore('parcelas').getAll());
+  return reqAsPromise(t.objectStore('parcelas').index('fazendaId').getAll(fazendaId));
 }
 
-export async function getProximoNumeroParcela() {
-  const db = await abrirDB();
-  const todas = await getTodasParcelas(db);
-  if (todas.length === 0) return 1;
-  return Math.max(...todas.map((p) => p.numero)) + 1;
+export async function getProximoNumeroParcela(fazendaId) {
+  const todas = await getParcelasDaFazenda(fazendaId);
+  const maior = maiorNumero(todas);
+  return maior ? maior.numero + 1 : 1;
 }
 
-export async function getUltimaParcelaCriada() {
-  const db = await abrirDB();
-  const todas = await getTodasParcelas(db);
-  if (todas.length === 0) return null;
-  return todas.reduce((a, b) => (a.numero > b.numero ? a : b));
+export async function getUltimaParcelaCriada(fazendaId) {
+  const todas = await getParcelasDaFazenda(fazendaId);
+  return maiorNumero(todas);
 }
 
 export async function getParcelasDoTalhao(talhaoId) {
@@ -205,12 +252,20 @@ export async function getParcelasDoTalhao(talhaoId) {
   return todas.sort((a, b) => a.numero - b.numero);
 }
 
+// Parcela "em andamento" do talhão (a de maior número com status em_andamento), ou null.
+export async function getParcelaEmAndamento(talhaoId) {
+  const todas = await getParcelasDoTalhao(talhaoId);
+  return maiorNumero(todas.filter((p) => p.status === 'em_andamento'));
+}
+
 export async function criarParcela(talhaoId, { forma, comprimento, largura, raio }) {
   const db = await abrirDB();
-  const numero = await getProximoNumeroParcela();
+  const talhao = await getTalhao(talhaoId);
+  const numero = await getProximoNumeroParcela(talhao.fazendaId);
   const parcela = {
     id: gerarId(),
     talhaoId,
+    fazendaId: talhao.fazendaId,
     numero,
     forma,
     comprimento: comprimento ?? null,
@@ -335,7 +390,7 @@ export async function excluirMedicao(id) {
   });
 }
 
-// ---------- backup completo (usado por export.js) ----------
+// ---------- backup (usado por export.js) ----------
 
 export async function getTudo() {
   const db = await abrirDB();
@@ -346,6 +401,21 @@ export async function getTudo() {
     dados[nome] = await reqAsPromise(t.objectStore(nome).getAll());
   }
   return dados;
+}
+
+export async function getTudoDaFazenda(fazendaId) {
+  const fazenda = await getFazenda(fazendaId);
+  const talhoes = await getTalhoesDaFazenda(fazendaId);
+  const parcelas = [];
+  const medicoes = [];
+  for (const talhao of talhoes) {
+    const parcelasDoTalhao = await getParcelasDoTalhao(talhao.id);
+    for (const parcela of parcelasDoTalhao) {
+      parcelas.push(parcela);
+      medicoes.push(...(await getMedicoesDaParcela(parcela.id)));
+    }
+  }
+  return { fazendas: fazenda ? [fazenda] : [], talhoes, parcelas, medicoes };
 }
 
 export async function restaurarTudo(dados) {

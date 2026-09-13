@@ -2,8 +2,9 @@ import * as db from './db.js';
 import { capParaDap, estatisticasParcela, estatisticasAgregadas } from './stats.js';
 import { QUALIDADES } from './validation.js';
 
-// Delimitador ';' e decimal ',' — abre corretamente no Excel em configuração pt-BR.
-const SEP = ';';
+// CSV padrão (separador ',', decimal '.', UTF-8 sem BOM) — lido por pd.read_csv()
+// sem nenhum parâmetro extra. Para abrir no Excel: Dados > Obter Dados > De Texto/CSV.
+const SEP = ',';
 
 function celula(valor) {
   if (valor === null || valor === undefined) return '';
@@ -14,9 +15,9 @@ function celula(valor) {
   return texto;
 }
 
-function numPt(valor, casas = 1) {
+function num(valor, casas = 1) {
   if (valor === null || valor === undefined || Number.isNaN(valor)) return '';
-  return valor.toFixed(casas).replace('.', ',');
+  return valor.toFixed(casas);
 }
 
 function linhaCsv(campos) {
@@ -60,12 +61,12 @@ export async function gerarCsvMedicoes(fazenda) {
             parcela.numero,
             m.linha,
             m.arvore,
-            m.falha ? '' : numPt(m.cap, 1),
-            m.falha ? '' : numPt(capParaDap(m.cap), 2),
-            m.altura != null ? numPt(m.altura, 2) : '',
+            m.falha ? '' : num(m.cap, 1),
+            m.falha ? '' : num(capParaDap(m.cap), 2),
+            m.altura != null ? num(m.altura, 2) : '',
             nomeQualidade(m.qualidade),
             m.falha ? 'Sim' : 'Não',
-            m.timestamp ? new Date(m.timestamp).toLocaleString('pt-BR') : '',
+            m.timestamp || '',
           ])
         );
       }
@@ -79,7 +80,7 @@ export async function gerarCsvEstatisticasParcelas(fazenda) {
   const estrutura = await coletarEstrutura(fazenda.id);
   const linhas = [
     linhaCsv([
-      'Talhão', 'Parcela', 'Área (m²)', 'Status',
+      'Talhão', 'Parcela', 'Área (m2)', 'Status',
       'n só CAP', 'DAP médio só CAP (cm)',
       'n CAP+altura', 'DAP médio CAP+altura (cm)', 'CV% (CAP+altura)', 'Erro% (CAP+altura)',
       'Altura média (m)', 'CV% altura', 'Erro% altura', 'Falhas',
@@ -92,17 +93,17 @@ export async function gerarCsvEstatisticasParcelas(fazenda) {
         linhaCsv([
           talhao.numero,
           parcela.numero,
-          numPt(parcela.area, 1),
+          num(parcela.area, 1),
           parcela.status === 'concluida' ? 'Concluída' : 'Em andamento',
           s.soCap.n,
-          numPt(s.soCap.media, 1),
+          num(s.soCap.media, 1),
           s.comAltura.n,
-          numPt(s.comAltura.media, 1),
-          numPt(s.comAltura.cv, 1),
-          numPt(s.comAltura.erro, 1),
-          numPt(s.alturaMedia.media, 2),
-          numPt(s.alturaMedia.cv, 1),
-          numPt(s.alturaMedia.erro, 1),
+          num(s.comAltura.media, 1),
+          num(s.comAltura.cv, 1),
+          num(s.comAltura.erro, 1),
+          num(s.alturaMedia.media, 2),
+          num(s.alturaMedia.cv, 1),
+          num(s.alturaMedia.erro, 1),
           s.falhas,
         ])
       );
@@ -135,10 +136,10 @@ export async function gerarCsvEstatisticasTalhoes(fazenda) {
         parcelas.length,
         s.n,
         s.falhas,
-        numPt(s.dap.media, 1),
-        numPt(s.altura.media, 2),
-        numPt(s.dap.cv, 1),
-        numPt(s.dap.erro, 1),
+        num(s.dap.media, 1),
+        num(s.altura.media, 2),
+        num(s.dap.cv, 1),
+        num(s.dap.erro, 1),
       ])
     );
   }
@@ -147,18 +148,17 @@ export async function gerarCsvEstatisticasTalhoes(fazenda) {
   linhas.push(
     linhaCsv([
       'GERAL', '', totalParcelas, geral.n, geral.falhas,
-      numPt(geral.dap.media, 1),
-      numPt(geral.altura.media, 2),
-      numPt(geral.dap.cv, 1),
-      numPt(geral.dap.erro, 1),
+      num(geral.dap.media, 1),
+      num(geral.altura.media, 2),
+      num(geral.dap.cv, 1),
+      num(geral.dap.erro, 1),
     ])
   );
   return linhas.join('\r\n');
 }
 
 export function baixarCsv(nomeArquivo, conteudo) {
-  const BOM = '﻿'; // garante acentuação correta ao abrir no Excel
-  const blob = new Blob([BOM + conteudo], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob([conteudo], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

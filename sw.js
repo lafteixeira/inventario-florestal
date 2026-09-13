@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inventario-florestal-shell-v3';
+const CACHE_NAME = 'inventario-florestal-shell-v4';
 const APP_SHELL = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const APP_SHELL = [
   './js/stats.js',
   './js/export.js',
   './js/reports.js',
+  './js/screens/projetos.js',
   './js/screens/coleta.js',
   './js/screens/parcelas.js',
   './js/screens/talhoes.js',

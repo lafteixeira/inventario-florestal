@@ -25,6 +25,27 @@ body {
   color: white;
   padding: 1rem;
   font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.projeto-atual {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-trocar-projeto {
+  width: auto;
+  margin-left: auto;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  font-size: 0.85rem;
+  padding: 0.4rem 0.7rem;
 }
 
 .nav-telas {
@@ -322,4 +343,42 @@ td input, td select {
   background: #fafbfa;
   font-size: 0.85rem;
   color: #444;
+}
+
+/* ---------- Projetos (tela inicial) ---------- */
+
+.ajuda {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: -0.4rem;
+}
+
+#lista-projetos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.cartao-projeto {
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  padding: 0.8rem;
+}
+
+.cartao-projeto h3 {
+  margin: 0 0 0.3rem;
+}
+
+.detalhes-projeto {
+  margin: 0.15rem 0;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.painel-form {
+  border: 1px dashed var(--borda);
+  border-radius: 10px;
+  padding: 0.8rem;
+  margin: 1rem 0;
 }
