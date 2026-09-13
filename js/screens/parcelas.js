@@ -277,7 +277,7 @@ function linhaEdicao(m) {
       <td><input type="text" inputmode="decimal" class="ed-altura" value="${m.altura ?? ''}"></td>
       <td>
         <select class="ed-qualidade">
-          ${QUALIDADES.map((q) => `<option value="${q.id}" ${q.id === m.qualidade ? 'selected' : ''}>${q.nome}</option>`).join('')}
+          ${QUALIDADES.map((q) => `<option value="${q.id}" ${q.id === m.qualidade ? 'selected' : ''}>${q.letra} — ${q.nome}</option>`).join('')}
         </select>
       </td>
       <td class="acoes-tabela">

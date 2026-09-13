@@ -1,3 +1,5 @@
+import { QUALIDADE_FALHA } from './validation.js';
+
 const DB_NAME = 'inventario-florestal';
 const DB_VERSION = 2;
 
@@ -459,12 +461,12 @@ export async function atualizarMedicao(id, { linha, arvore, cap, altura, qualida
   const t = tx(db, ['medicoes'], 'readwrite');
   const store = t.objectStore('medicoes');
   const medicao = await reqAsPromise(store.get(id));
-  const falha = cap === 0 || qualidade === 5;
+  const falha = cap === 0 || qualidade === QUALIDADE_FALHA;
   medicao.linha = linha;
   medicao.arvore = arvore;
   medicao.cap = falha ? 0 : cap;
   medicao.altura = falha ? null : altura;
-  medicao.qualidade = falha ? 5 : qualidade;
+  medicao.qualidade = falha ? QUALIDADE_FALHA : qualidade;
   medicao.falha = falha;
   store.put(medicao);
   return new Promise((resolve, reject) => {

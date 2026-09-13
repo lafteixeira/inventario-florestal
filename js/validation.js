@@ -65,10 +65,24 @@ export function validarAltura(texto, somar130) {
   return { status: 'ok', valor, mensagem: '' };
 }
 
+// Códigos padrão de qualidade da árvore (compatível com os relatórios do
+// contratante — ver planilha de referência). O código numérico é o que fica
+// gravado em medicao.qualidade; a letra é o atalho que a equipe de campo usa.
 export const QUALIDADES = [
-  { id: 1, nome: 'Normal' },
-  { id: 2, nome: 'Dominada' },
-  { id: 3, nome: 'Quebrada/bifurcada' },
-  { id: 4, nome: 'Morta em pé' },
-  { id: 5, nome: 'Falha' },
+  { id: 0, letra: 'N', nome: 'Árvore Normal' },
+  { id: 1, letra: 'F', nome: 'Falha de Plantio' },
+  { id: 2, letra: 'M', nome: 'Morta' },
+  { id: 3, letra: 'S', nome: 'Suprimida' },
+  { id: 4, letra: 'B', nome: 'Bifurcada acima de 1,30 metros' },
+  { id: 5, letra: 'Q', nome: 'Quebrada' },
+  { id: 6, letra: 'T', nome: 'Torta' },
+  { id: 7, letra: 'I', nome: 'Inclinada' },
+  { id: 8, letra: 'C', nome: 'Caída' },
+  { id: 9, letra: 'P', nome: 'Ponta Seca' },
+  { id: 10, letra: 'W', nome: 'Falha de brotação (Toco)' },
+  { id: 13, letra: 'Y', nome: 'Bifurcada abaixo de 1,30 metros' },
 ];
+
+// "Falha de Plantio" (F) é o equivalente a CAP=0 (posição vazia na linha) —
+// seção 5 do log: registra automaticamente quando o CAP digitado é 0.
+export const QUALIDADE_FALHA = 1;

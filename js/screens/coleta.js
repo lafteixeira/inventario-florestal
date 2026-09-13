@@ -1,5 +1,5 @@
 import * as db from '../db.js';
-import { validarCap, validarAltura, QUALIDADES } from '../validation.js';
+import { validarCap, validarAltura, QUALIDADES, QUALIDADE_FALHA } from '../validation.js';
 import { medicoesValidasComDap, classesComDeficitDeAltura } from '../stats.js';
 
 const LIMIAR_DEFICIT = 3;
@@ -124,8 +124,8 @@ function render(ctx) {
         </label>
         <label>Qualidade
           <select id="qualidade">
-            ${QUALIDADES.filter((q) => q.id !== 5)
-              .map((q) => `<option value="${q.id}">${q.nome}</option>`)
+            ${QUALIDADES.filter((q) => q.id !== QUALIDADE_FALHA)
+              .map((q) => `<option value="${q.id}">${q.letra} — ${q.nome}</option>`)
               .join('')}
           </select>
         </label>
@@ -314,7 +314,7 @@ async function tentarAdicionarMedicao(ctx) {
     return;
   }
 
-  const falha = resultadoCap.status === 'falha' || qualidadeSelecionada === 5;
+  const falha = resultadoCap.status === 'falha' || qualidadeSelecionada === QUALIDADE_FALHA;
 
   let resultadoAltura = { status: 'ok', valor: null, mensagem: '' };
   if (!falha) {
@@ -349,7 +349,7 @@ async function tentarAdicionarMedicao(ctx) {
     arvore,
     cap: falha ? 0 : resultadoCap.valor,
     altura: falha ? null : resultadoAltura.valor,
-    qualidade: falha ? 5 : qualidadeSelecionada,
+    qualidade: falha ? QUALIDADE_FALHA : qualidadeSelecionada,
     falha,
   });
 
