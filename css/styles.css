@@ -211,6 +211,56 @@ fieldset:disabled {
   opacity: 0.6;
 }
 
+/* ---------- Seções recolhíveis (Coleta: cadastro do talhão / parcela) ---------- */
+
+.cartao-secao {
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.cartao-secao fieldset {
+  border: none;
+  border-top: 1px solid var(--borda);
+  border-radius: 0;
+  margin-bottom: 0;
+  padding-top: 1rem;
+}
+
+.cabecalho-secao {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #eef2ef;
+  color: var(--texto);
+  border: none;
+  border-radius: 0;
+  padding: 0.7rem 0.9rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-align: left;
+}
+
+.cabecalho-secao .seta {
+  font-size: 0.85rem;
+  color: #555;
+  font-weight: 400;
+}
+
+.oculto-visual {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 [hidden] {
   display: none !important;
 }
@@ -315,7 +365,7 @@ td input, td select {
   background: #4b5b52;
 }
 
-.btn-excluir {
+.btn-excluir, .btn-perigo {
   background: var(--erro) !important;
 }
 

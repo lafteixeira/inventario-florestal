@@ -82,6 +82,14 @@ async function render(ctx) {
         </label>
       </div>
 
+      ${
+        parcelaSelecionada
+          ? `<div class="acoes">
+              <button type="button" id="btn-apagar-parcela" class="btn-perigo">Apagar Parcela ${parcelaSelecionada.numero}</button>
+            </div>`
+          : ''
+      }
+
       ${parcelaSelecionada ? renderAnalise(parcelaSelecionada, medicoes, ctx.unidade) : '<p>Sem parcelas.</p>'}
     </section>
   `;
@@ -98,6 +106,21 @@ async function render(ctx) {
       render(ctx);
     });
   });
+
+  const btnApagarParcela = ctx.container.querySelector('#btn-apagar-parcela');
+  if (btnApagarParcela) {
+    btnApagarParcela.addEventListener('click', async () => {
+      const ok = window.confirm(
+        `Apagar Parcela ${parcelaSelecionada.numero}? As ${medicoes.length} medições dela serão perdidas. Essa ação não pode ser desfeita.`
+      );
+      if (!ok) return;
+      await db.excluirParcela(parcelaSelecionada.id);
+      ctx.parcelas = await db.getParcelasDoTalhao(ctx.talhao.id);
+      const emAndamento = await db.getParcelaEmAndamento(ctx.talhao.id);
+      ctx.parcelaSelecionadaId = emAndamento?.id || ctx.parcelas.at(-1)?.id || null;
+      render(ctx);
+    });
+  }
 
   if (parcelaSelecionada) {
     ligarEventosTabela(ctx, medicoes);

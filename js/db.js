@@ -142,6 +142,37 @@ export async function criarFazenda({ nome, municipio, uf, contratante, endereco,
   });
 }
 
+// Apaga o projeto inteiro: talhões, parcelas e medições. Irreversível.
+export async function excluirFazenda(fazendaId) {
+  const talhoes = await getTalhoesDaFazenda(fazendaId);
+  const talhaoIds = talhoes.map((t) => t.id);
+  let parcelaIds = [];
+  for (const talhaoId of talhaoIds) {
+    const parcelas = await getParcelasDoTalhao(talhaoId);
+    parcelaIds = parcelaIds.concat(parcelas.map((p) => p.id));
+  }
+  let medicaoIds = [];
+  for (const parcelaId of parcelaIds) {
+    const medicoes = await getMedicoesDaParcela(parcelaId);
+    medicaoIds = medicaoIds.concat(medicoes.map((m) => m.id));
+  }
+  const meta = await getMeta();
+
+  const db = await abrirDB();
+  const t = tx(db, ['fazendas', 'talhoes', 'parcelas', 'medicoes', 'meta'], 'readwrite');
+  medicaoIds.forEach((id) => t.objectStore('medicoes').delete(id));
+  parcelaIds.forEach((id) => t.objectStore('parcelas').delete(id));
+  talhaoIds.forEach((id) => t.objectStore('talhoes').delete(id));
+  t.objectStore('fazendas').delete(fazendaId);
+  if (meta.fazendaAtualId === fazendaId) {
+    t.objectStore('meta').delete('estado');
+  }
+  return new Promise((resolve, reject) => {
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+  });
+}
+
 // ---------- talhões ----------
 
 export async function getTalhao(id) {
@@ -243,6 +274,27 @@ export async function concluirTalhao(talhaoId) {
   });
 }
 
+// Apaga o talhão, suas parcelas e todas as medições delas. Irreversível.
+export async function excluirTalhao(talhaoId) {
+  const parcelas = await getParcelasDoTalhao(talhaoId);
+  const parcelaIds = parcelas.map((p) => p.id);
+  let medicaoIds = [];
+  for (const parcelaId of parcelaIds) {
+    const medicoes = await getMedicoesDaParcela(parcelaId);
+    medicaoIds = medicaoIds.concat(medicoes.map((m) => m.id));
+  }
+
+  const db = await abrirDB();
+  const t = tx(db, ['talhoes', 'parcelas', 'medicoes'], 'readwrite');
+  medicaoIds.forEach((id) => t.objectStore('medicoes').delete(id));
+  parcelaIds.forEach((id) => t.objectStore('parcelas').delete(id));
+  t.objectStore('talhoes').delete(talhaoId);
+  return new Promise((resolve, reject) => {
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+  });
+}
+
 // ---------- parcelas ----------
 
 function calcularArea(forma, comprimento, largura, raio) {
@@ -336,6 +388,19 @@ export async function finalizarParcela(parcelaId) {
   store.put(parcela);
   return new Promise((resolve, reject) => {
     t.oncomplete = () => resolve(parcela);
+    t.onerror = () => reject(t.error);
+  });
+}
+
+// Apaga a parcela e todas as suas medições. Irreversível.
+export async function excluirParcela(parcelaId) {
+  const medicoes = await getMedicoesDaParcela(parcelaId);
+  const db = await abrirDB();
+  const t = tx(db, ['parcelas', 'medicoes'], 'readwrite');
+  medicoes.forEach((m) => t.objectStore('medicoes').delete(m.id));
+  t.objectStore('parcelas').delete(parcelaId);
+  return new Promise((resolve, reject) => {
+    t.oncomplete = () => resolve();
     t.onerror = () => reject(t.error);
   });
 }

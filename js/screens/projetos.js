@@ -51,6 +51,7 @@ async function cartaoProjeto(fazenda) {
       <div class="acoes">
         <button type="button" class="btn-abrir-projeto" data-id="${fazenda.id}">Abrir</button>
         <button type="button" class="btn-exportar-projeto" data-id="${fazenda.id}">Exportar</button>
+        <button type="button" class="btn-apagar-projeto btn-perigo" data-id="${fazenda.id}" data-nome="${fazenda.nome}">Apagar</button>
       </div>
     </div>
   `;
@@ -117,6 +118,18 @@ function ligarEventos(ctx) {
     btn.addEventListener('click', async () => {
       const fazenda = await db.getFazenda(btn.dataset.id);
       await exportarBackupDaFazenda(fazenda);
+    });
+  });
+
+  ctx.container.querySelectorAll('.btn-apagar-projeto').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id;
+      const ok = window.confirm(
+        `Apagar o projeto "${btn.dataset.nome}"? Todos os talhões, parcelas e medições dele serão perdidos. Essa ação não pode ser desfeita.`
+      );
+      if (!ok) return;
+      await db.excluirFazenda(id);
+      render(ctx);
     });
   });
 

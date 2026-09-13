@@ -80,7 +80,7 @@ async function render(ctx) {
           <thead>
             <tr>
               <th></th><th>Talhão</th><th>Status</th><th>Parcelas</th><th>Árvores</th>
-              <th>${rotulo} médio</th><th>Altura média</th><th>CV%</th><th>Erro%</th>
+              <th>${rotulo} médio</th><th>Altura média</th><th>CV%</th><th>Erro%</th><th></th>
             </tr>
           </thead>
           <tbody>${linhas.join('')}</tbody>
@@ -141,6 +141,9 @@ async function linhaTalhao(ctx, { talhao, parcelas, stats }) {
       <td>${fmt(stats.altura.media, 2)}</td>
       <td>${fmt(stats.dap.cv, 1)}</td>
       <td>${fmt(stats.dap.erro, 1)}</td>
+      <td>
+        <button type="button" class="btn-apagar-talhao btn-perigo" data-talhao-id="${talhao.id}" data-rotulo="${rotuloTalhao(talhao)}" data-parcelas="${parcelas.length}" data-arvores="${stats.n}">Apagar</button>
+      </td>
     </tr>
   `;
 
@@ -166,6 +169,7 @@ async function linhaTalhao(ctx, { talhao, parcelas, stats }) {
           <td>${fmt(s.altura.media, 2)}</td>
           <td>${fmt(s.dap.cv, 1)}</td>
           <td>${fmt(s.dap.erro, 1)}</td>
+          <td></td>
         </tr>
       `
     )
@@ -180,6 +184,20 @@ function ligarEventos(ctx, dadosPorTalhao) {
       const id = tr.dataset.talhaoId;
       if (ctx.expandidos.has(id)) ctx.expandidos.delete(id);
       else ctx.expandidos.add(id);
+      render(ctx);
+    });
+  });
+
+  ctx.container.querySelectorAll('.btn-apagar-talhao').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.talhaoId;
+      const ok = window.confirm(
+        `Apagar "${btn.dataset.rotulo}"? As ${btn.dataset.parcelas} parcelas e ${btn.dataset.arvores} árvores dele serão perdidas. Essa ação não pode ser desfeita.`
+      );
+      if (!ok) return;
+      await db.excluirTalhao(id);
+      ctx.expandidos.delete(id);
       render(ctx);
     });
   });
