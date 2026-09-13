@@ -6,6 +6,7 @@ import {
   gerarCsvEstatisticasTalhoes,
   baixarCsv,
 } from '../reports.js';
+import { confirmar } from '../confirmacao.js';
 
 function slug(texto) {
   return texto
@@ -192,7 +193,7 @@ function ligarEventos(ctx, dadosPorTalhao) {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const id = btn.dataset.talhaoId;
-      const ok = window.confirm(
+      const ok = await confirmar(
         `Apagar "${btn.dataset.rotulo}"? As ${btn.dataset.parcelas} parcelas e ${btn.dataset.arvores} árvores dele serão perdidas. Essa ação não pode ser desfeita.`
       );
       if (!ok) return;

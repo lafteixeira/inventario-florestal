@@ -1,5 +1,6 @@
 import * as db from '../db.js';
 import { exportarBackup, exportarBackupDaFazenda, importarBackupDeArquivo } from '../export.js';
+import { confirmar } from '../confirmacao.js';
 
 export async function initProjetos(container, { onAbrirProjeto }) {
   const ctx = { container, onAbrirProjeto, mostrandoForm: false };
@@ -124,7 +125,7 @@ function ligarEventos(ctx) {
   ctx.container.querySelectorAll('.btn-apagar-projeto').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.id;
-      const ok = window.confirm(
+      const ok = await confirmar(
         `Apagar o projeto "${btn.dataset.nome}"? Todos os talhões, parcelas e medições dele serão perdidos. Essa ação não pode ser desfeita.`
       );
       if (!ok) return;
@@ -138,8 +139,9 @@ function ligarEventos(ctx) {
   $('#input-importar-tudo').addEventListener('change', async (e) => {
     const arquivo = e.target.files[0];
     if (!arquivo) return;
-    const ok = window.confirm(
-      'Importar este backup vai SUBSTITUIR todos os projetos e dados atuais do aparelho. Continuar?'
+    const ok = await confirmar(
+      'Importar este backup vai SUBSTITUIR todos os projetos e dados atuais do aparelho. Continuar?',
+      { confirmarTexto: 'Importar' }
     );
     if (!ok) return;
     await importarBackupDeArquivo(arquivo);

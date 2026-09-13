@@ -249,6 +249,33 @@ fieldset:disabled {
   font-weight: 400;
 }
 
+/* ---------- Modal de confirmação (substitui window.confirm) ---------- */
+
+.overlay-confirmacao {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1000;
+}
+
+.caixa-confirmacao {
+  background: white;
+  border-radius: 12px;
+  padding: 1.2rem;
+  max-width: 360px;
+  width: 100%;
+}
+
+.caixa-confirmacao p {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
 .oculto-visual {
   position: absolute;
   width: 1px;

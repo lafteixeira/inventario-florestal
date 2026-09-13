@@ -6,6 +6,7 @@ import {
   classesComDeficitDeAltura,
   estatisticasParcela,
 } from '../stats.js';
+import { confirmar } from '../confirmacao.js';
 
 const LIMIAR_DEFICIT = 3;
 
@@ -110,7 +111,7 @@ async function render(ctx) {
   const btnApagarParcela = ctx.container.querySelector('#btn-apagar-parcela');
   if (btnApagarParcela) {
     btnApagarParcela.addEventListener('click', async () => {
-      const ok = window.confirm(
+      const ok = await confirmar(
         `Apagar Parcela ${parcelaSelecionada.numero}? As ${medicoes.length} medições dela serão perdidas. Essa ação não pode ser desfeita.`
       );
       if (!ok) return;
@@ -283,7 +284,7 @@ function ligarEventosTabela(ctx, medicoes) {
   tabela.querySelectorAll('.btn-excluir').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const id = Number(btn.dataset.id);
-      if (!window.confirm('Excluir esta medição?')) return;
+      if (!(await confirmar('Excluir esta medição?', { confirmarTexto: 'Excluir' }))) return;
       await db.excluirMedicao(id);
       render(ctx);
     });
