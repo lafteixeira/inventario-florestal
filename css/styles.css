@@ -443,6 +443,13 @@ td input, td select {
   border: 2px solid var(--verde);
 }
 
+.nota-minimo-inclusao {
+  font-size: 0.85rem;
+  color: var(--texto);
+  opacity: 0.7;
+  margin-top: -0.25rem;
+}
+
 /* ---------- Talhões (linhas expansíveis) ---------- */
 
 .linha-talhao {

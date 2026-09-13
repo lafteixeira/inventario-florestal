@@ -1,12 +1,26 @@
 export const AMPLITUDE_CLASSE = 2; // cm — seção 4 do log
 
+// DAP mínimo para uma árvore entrar no inventário (critério de inclusão do campo,
+// não é sobre plausibilidade de digitação — ver CAP_ALERTA em validation.js).
+// O histograma de classes diamétricas é ancorado nesse valor: a primeira classe
+// exibida é sempre [DAP_MINIMO_INCLUSAO, DAP_MINIMO_INCLUSAO + amplitude).
+export const DAP_MINIMO_INCLUSAO = 5;
+
 export function capParaDap(cap) {
   return cap / Math.PI;
 }
 
-// Retorna o limite inferior da classe diamétrica de um DAP (amplitude fixa).
-export function classeDiametrica(dap, amplitude = AMPLITUDE_CLASSE) {
-  return Math.floor(dap / amplitude) * amplitude;
+// Retorna o limite inferior da classe diamétrica de um DAP, ancorado em `minimo`
+// (amplitude fixa) — assim o histograma sempre começa exatamente no DAP mínimo
+// de inclusão, em vez de em classes múltiplas de `amplitude` a partir de zero.
+export function classeDiametrica(dap, amplitude = AMPLITUDE_CLASSE, minimo = DAP_MINIMO_INCLUSAO) {
+  return Math.floor((dap - minimo) / amplitude) * amplitude + minimo;
+}
+
+// Árvores que atendem o critério de inclusão (DAP mínimo) — só essas entram no
+// histograma de classes diamétricas e nas análises por classe.
+export function arvoresIncluidas(itens) {
+  return itens.filter((item) => item.dap >= DAP_MINIMO_INCLUSAO);
 }
 
 export function classeLabel(inicioClasse, amplitude = AMPLITUDE_CLASSE) {
@@ -37,9 +51,11 @@ function contarPorClasse(itens) {
 }
 
 // Distribuição relativa (%) por classe diamétrica — usada no histograma sobreposto.
+// Só considera árvores dentro do critério de inclusão (DAP mínimo).
 export function distribuicaoPercentual(itens) {
-  const total = itens.length;
-  const contagem = contarPorClasse(itens);
+  const incluidas = arvoresIncluidas(itens);
+  const total = incluidas.length;
+  const contagem = contarPorClasse(incluidas);
   const classes = [...contagem.keys()].sort((a, b) => a - b);
   return classes.map((classe) => ({
     classe,
@@ -53,13 +69,14 @@ export function distribuicaoPercentual(itens) {
 // Classes onde a proporção de árvores com altura medida está defasada em relação
 // à proporção da classe na parcela toda (seção 4 do log — sugestão de mais alturas).
 export function classesComDeficitDeAltura(medicoesValidas, limiar = 3) {
-  const total = medicoesValidas.length;
+  const incluidas = arvoresIncluidas(medicoesValidas);
+  const total = incluidas.length;
   if (total === 0) return [];
 
-  const comAltura = medicoesValidas.filter((m) => m.altura != null);
+  const comAltura = incluidas.filter((m) => m.altura != null);
   const totalComAltura = comAltura.length;
 
-  const contagemTodas = contarPorClasse(medicoesValidas);
+  const contagemTodas = contarPorClasse(incluidas);
   const contagemComAltura = contarPorClasse(comAltura);
 
   const classes = [...contagemTodas.keys()].sort((a, b) => a - b);
@@ -87,11 +104,12 @@ export function classesComDeficitDeAltura(medicoesValidas, limiar = 3) {
 // na mesma ordem de prioridade de classesComDeficitDeAltura.
 export function arvoresParaMedirAltura(medicoesValidas, limiar = 3) {
   const deficit = classesComDeficitDeAltura(medicoesValidas, limiar);
+  const incluidas = arvoresIncluidas(medicoesValidas);
   return deficit.map((d) => ({
     classe: d.classe,
     labelCap: d.labelCap,
     diferenca: d.diferenca,
-    arvores: medicoesValidas
+    arvores: incluidas
       .filter((m) => m.altura == null && classeDiametrica(m.dap) === d.classe)
       .sort((a, b) => a.linha - b.linha || a.arvore - b.arvore),
   }));

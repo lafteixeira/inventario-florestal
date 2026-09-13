@@ -1,7 +1,7 @@
 # Log do Projeto — Inventário Florestal (PWA)
 
 **Última atualização deste documento:** 13/09/2026
-**Versão atual do app:** 1.0.0 (ver `js/versao.js`)
+**Versão atual do app:** 1.1.0 (ver `js/versao.js`)
 **Status:** em uso para testes de campo com equipe
 
 ---
@@ -145,7 +145,9 @@ Padrão de 12 categorias, compatível com os relatórios do contratante:
 Implementado em `js/stats.js`:
 
 - **DAP (cm) = CAP (cm) / π**.
-- Classes diamétricas de amplitude fixa de 2 cm (`classeDiametrica`); rótulo em CAP calculado como `classe × π` arredondado (`classeLabelCap`), já que o operador mede CAP em campo.
+- **DAP mínimo de inclusão: 5 cm** (`DAP_MINIMO_INCLUSAO`) — critério de campo: árvores abaixo disso não entram no histograma de classes diamétricas nem nas análises por classe (déficit de altura, árvores elegíveis). Continuam gravadas na tabela de medições e nas estatísticas agregadas (n, média geral), só ficam fora da distribuição por classe. Um contador na tela Parcelas avisa quantas árvores da parcela ficaram abaixo do mínimo.
+- Classes diamétricas de amplitude fixa de 2 cm, **ancoradas no DAP mínimo de inclusão** (`classeDiametrica`) — a primeira classe do histograma é sempre `[5, 7)`, não `[0, 2)`; rótulo em CAP calculado como `classe × π` arredondado (`classeLabelCap`), já que o operador mede CAP em campo.
+- Na tela Coleta, um CAP cujo DAP calculado fique abaixo de 5 cm dispara um alerta de confirmação (mesmo padrão dos demais valores incomuns): a árvore é registrada normalmente, só avisa que ela não entrará no histograma.
 - Estatísticas descritivas (`estatisticasDescritivas`): n, média, desvio padrão amostral (n−1), CV% (desvio/média×100), erro amostral E% usando **t de Student** por grau de liberdade (tabela embutida para 1–30 gl; aproximação normal z=1,96 acima disso — sem depender de biblioteca externa, app 100% offline).
 - **Estatísticas por parcela** (`estatisticasParcela`): grupos disjuntos "só CAP" (sem altura) e "CAP + altura", mais altura média a partir do subconjunto com altura medida.
 - **Estatísticas agregadas** (`estatisticasAgregadas`, usada em Talhões/geral): DAP combinado de todas as árvores válidas + altura média do subconjunto com altura.
@@ -191,6 +193,7 @@ Implementado em `js/stats.js`:
 | 13/09/2026 | `5658f89` | Lista exata de árvores elegíveis para medição de altura (linha/árvore/CAP) na tela Parcelas, além do alerta por classe já existente. |
 | 13/09/2026 | `7eabfae` | Códigos de Qualidade atualizados para o padrão de 12 categorias do contratante (substituindo a lista provisória de 5 categorias inicial). |
 | 13/09/2026 | `a80628f` | Versão do app explícita na tela Projetos + atualização 100% manual do Service Worker (nunca aplica uma versão nova sozinho) — preparação para os testes de campo com a equipe. |
+| 13/09/2026 | *(pendente)* | Primeiro ajuste vindo do teste de campo: histograma de classes diamétricas passa a começar no DAP mínimo de inclusão (5 cm) em vez de zero, mantendo amplitude de 2 cm; alerta na tela Coleta quando o CAP digitado resulta em DAP abaixo desse mínimo; nota na tela Parcelas informando quantas árvores da parcela ficaram fora da distribuição por esse motivo. Versão 1.1.0. |
 
 ## 14. Limitações conhecidas / próximos passos
 

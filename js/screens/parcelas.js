@@ -5,6 +5,7 @@ import {
   distribuicaoPercentual,
   arvoresParaMedirAltura,
   estatisticasParcela,
+  DAP_MINIMO_INCLUSAO,
 } from '../stats.js';
 import { confirmar } from '../confirmacao.js';
 
@@ -135,6 +136,7 @@ function renderAnalise(parcela, medicoes, unidade) {
   const distSoDap = distribuicaoPercentual(validas);
   const distComAltura = distribuicaoPercentual(comAltura);
   const grupos = arvoresParaMedirAltura(validas, LIMIAR_DEFICIT);
+  const abaixoMinimo = validas.filter((m) => m.dap < DAP_MINIMO_INCLUSAO).length;
   const fator = unidade === 'cap' ? Math.PI : 1;
   const rotulo = unidade === 'cap' ? 'CAP' : 'DAP';
 
@@ -157,6 +159,11 @@ function renderAnalise(parcela, medicoes, unidade) {
     </div>
 
     ${renderHistograma(distSoDap, distComAltura, unidade)}
+    ${
+      abaixoMinimo > 0
+        ? `<p class="nota-minimo-inclusao">${abaixoMinimo} árvore(s) abaixo do DAP mínimo de inclusão (${DAP_MINIMO_INCLUSAO} cm) — não entram nesta distribuição.</p>`
+        : ''
+    }
 
     ${
       grupos.length > 0

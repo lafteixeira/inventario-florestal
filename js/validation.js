@@ -1,8 +1,14 @@
+import { DAP_MINIMO_INCLUSAO } from './stats.js';
+
 // Faixas de plausibilidade (referência eucalipto — ajustáveis conforme seção 5 do log)
 export const CAP_BLOQUEIO = [1, 300];
 export const CAP_ALERTA = [5, 120];
 export const ALTURA_BLOQUEIO = [0.5, 80];
 export const ALTURA_ALERTA = [1.3, 45];
+
+// CAP equivalente ao DAP mínimo de inclusão (seção 4 do log) — abaixo disso a
+// árvore fica de fora do histograma de classes diamétricas.
+const CAP_MINIMO_INCLUSAO = DAP_MINIMO_INCLUSAO * Math.PI;
 
 export function parseNumero(texto) {
   if (texto === null || texto === undefined) return NaN;
@@ -32,6 +38,13 @@ export function validarCap(texto) {
       status: 'alerta',
       valor,
       mensagem: `CAP incomum (${valor} cm). Confira o valor — pode faltar vírgula/ponto.`,
+    };
+  }
+  if (valor < CAP_MINIMO_INCLUSAO) {
+    return {
+      status: 'alerta',
+      valor,
+      mensagem: `Árvore abaixo do DAP mínimo de inclusão (${DAP_MINIMO_INCLUSAO} cm). Ela será registrada, mas não entra no histograma de classes diamétricas.`,
     };
   }
   return { status: 'ok', valor, mensagem: '' };
