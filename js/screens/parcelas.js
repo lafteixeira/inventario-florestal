@@ -3,7 +3,7 @@ import { QUALIDADES } from '../validation.js';
 import {
   medicoesValidasComDap,
   distribuicaoPercentual,
-  classesComDeficitDeAltura,
+  arvoresParaMedirAltura,
   estatisticasParcela,
 } from '../stats.js';
 import { confirmar } from '../confirmacao.js';
@@ -134,7 +134,7 @@ function renderAnalise(parcela, medicoes, unidade) {
   const comAltura = validas.filter((m) => m.altura != null);
   const distSoDap = distribuicaoPercentual(validas);
   const distComAltura = distribuicaoPercentual(comAltura);
-  const deficit = classesComDeficitDeAltura(validas, LIMIAR_DEFICIT);
+  const grupos = arvoresParaMedirAltura(validas, LIMIAR_DEFICIT);
   const fator = unidade === 'cap' ? Math.PI : 1;
   const rotulo = unidade === 'cap' ? 'CAP' : 'DAP';
 
@@ -159,10 +159,21 @@ function renderAnalise(parcela, medicoes, unidade) {
     ${renderHistograma(distSoDap, distComAltura, unidade)}
 
     ${
-      deficit.length > 0
+      grupos.length > 0
         ? `<div class="alerta-deficit">
             <strong>Priorize altura nas classes de CAP:</strong>
-            ${deficit.map((c) => `<span class="chip">${c.labelCap} cm (${c.diferenca.toFixed(1)} pp)</span>`).join(' ')}
+            ${grupos.map((g) => `<span class="chip">${g.labelCap} cm (${g.diferenca.toFixed(1)} pp)</span>`).join(' ')}
+            <p class="titulo-arvores-eligiveis">Árvores elegíveis para medir altura:</p>
+            <ul class="lista-arvores-eligiveis">
+              ${grupos
+                .map(
+                  (g) =>
+                    `<li><strong>${g.labelCap} cm:</strong> ${g.arvores
+                      .map((a) => `L${a.linha}/A${a.arvore} (CAP ${a.cap})`)
+                      .join(' · ')}</li>`
+                )
+                .join('')}
+            </ul>
           </div>`
         : ''
     }

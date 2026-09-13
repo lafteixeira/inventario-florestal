@@ -82,6 +82,21 @@ export function classesComDeficitDeAltura(medicoesValidas, limiar = 3) {
     .sort((a, b) => b.diferenca - a.diferenca);
 }
 
+// Árvores só-CAP (sem altura) que pertencem a uma classe em déficit — a lista
+// exata de candidatas para a próxima medição de altura, agrupada por classe
+// na mesma ordem de prioridade de classesComDeficitDeAltura.
+export function arvoresParaMedirAltura(medicoesValidas, limiar = 3) {
+  const deficit = classesComDeficitDeAltura(medicoesValidas, limiar);
+  return deficit.map((d) => ({
+    classe: d.classe,
+    labelCap: d.labelCap,
+    diferenca: d.diferenca,
+    arvores: medicoesValidas
+      .filter((m) => m.altura == null && classeDiametrica(m.dap) === d.classe)
+      .sort((a, b) => a.linha - b.linha || a.arvore - b.arvore),
+  }));
+}
+
 // t de Student bicaudal, 95% de confiança, por grau de liberdade (n-1).
 // Acima de 30 graus de liberdade usa a aproximação normal (z = 1,96) — seção 7 do log.
 const TABELA_T = [
