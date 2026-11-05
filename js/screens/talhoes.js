@@ -1,5 +1,5 @@
 import * as db from '../db.js';
-import { estatisticasAgregadas } from '../stats.js';
+import { estatisticasAgregadas, areaBasalPorHa, suficienciaAmostral } from '../stats.js';
 import {
   gerarCsvMedicoes,
   gerarCsvEstatisticasParcelas,
@@ -30,8 +30,64 @@ function rotuloTalhao(talhao) {
 }
 
 export async function initTalhoes(container, fazenda) {
-  const ctx = { container, fazenda, expandidos: new Set(), unidade: 'dap' };
+  const ctx = { container, fazenda, expandidos: new Set(), unidade: 'dap', erroAdmissivel: 10 };
   await render(ctx);
+}
+
+// Suficiência amostral do projeto inteiro (não por talhão): usa só parcelas
+// concluídas, para uma parcela em andamento não puxar a área basal para baixo.
+function calcularSuficiencia(dadosPorTalhao, erroAdmissivel) {
+  const concluidas = [];
+  for (const { parcelas, medicoes } of dadosPorTalhao) {
+    for (const p of parcelas) {
+      if (p.status !== 'concluida') continue;
+      const g = areaBasalPorHa(
+        medicoes.filter((m) => m.parcelaId === p.id),
+        p.area
+      );
+      if (g != null) concluidas.push({ g, area: p.area });
+    }
+  }
+  const talhoes = dadosPorTalhao.map((d) => d.talhao);
+  const todosComArea = talhoes.length > 0 && talhoes.every((t) => t.area > 0);
+  const areaParcelaMedia = concluidas.length
+    ? concluidas.reduce((acc, c) => acc + c.area, 0) / concluidas.length
+    : null;
+  const areaTotalHa = todosComArea ? talhoes.reduce((acc, t) => acc + t.area, 0) : null;
+  const populacao =
+    areaTotalHa && areaParcelaMedia ? (areaTotalHa * 10000) / areaParcelaMedia : null;
+  const resultado = suficienciaAmostral(
+    concluidas.map((c) => c.g),
+    populacao,
+    erroAdmissivel
+  );
+  return { ...resultado, semArea: !todosComArea, areaTotalHa };
+}
+
+function renderSuficiencia(s) {
+  if (s.n < 2) {
+    return `<p>Conclua pelo menos 2 parcelas (com dimensões preenchidas) para calcular a suficiência amostral. Parcelas concluídas até agora: <strong>${s.n}</strong>.</p>`;
+  }
+  const situacao =
+    s.faltam === 0
+      ? '<strong>Suficiente</strong> — o número de parcelas atende ao erro admissível.'
+      : `Faltam <strong>${s.faltam}</strong> parcela(s).`;
+  return `
+    <table class="tabela-stat">
+      <tr><td>Parcelas concluídas (n)</td><td>${s.n}</td></tr>
+      <tr><td>G médio (m²/ha)</td><td>${fmt(s.media, 2)}</td></tr>
+      <tr><td>Desvio padrão de G</td><td>${fmt(s.desvio, 2)}</td></tr>
+      <tr><td>CV% de G</td><td>${fmt(s.cv, 1)}</td></tr>
+      <tr><td>Erro amostral atual (E%)</td><td>${fmt(s.erroAtual, 1)}</td></tr>
+      <tr><td>Parcelas necessárias</td><td>${s.nNecessario ?? '—'}</td></tr>
+    </table>
+    <p>${s.nNecessario != null ? situacao : ''}</p>
+    ${
+      s.semArea
+        ? '<p class="nota-minimo-inclusao">Há talhão sem área cadastrada: o cálculo foi feito sem correção de população finita (resultado mais conservador).</p>'
+        : `<p class="nota-minimo-inclusao">População: ${fmt(s.populacao, 0)} parcelas possíveis (${fmt(s.areaTotalHa, 1)} ha no total).</p>`
+    }
+  `;
 }
 
 async function coletarDadosTalhao(talhao) {
@@ -75,6 +131,12 @@ async function render(ctx) {
         <tr><td>Erro amostral E% (${rotulo})</td><td>${fmt(statsGerais.dap.erro, 1)}</td></tr>
       </table>
 
+      <h3>Suficiência amostral (área basal)</h3>
+      <label>Erro admissível (%) — 95% de confiança
+        <input id="erro-admissivel" type="number" min="1" max="50" step="1" value="${ctx.erroAdmissivel}">
+      </label>
+      ${renderSuficiencia(calcularSuficiencia(dadosPorTalhao, ctx.erroAdmissivel))}
+
       <h3>Talhões</h3>
       <div class="tabela-scroll">
         <table id="tabela-talhoes">
@@ -102,6 +164,12 @@ async function render(ctx) {
       ctx.unidade = btn.dataset.unidade;
       render(ctx);
     });
+  });
+
+  ctx.container.querySelector('#erro-admissivel').addEventListener('change', (e) => {
+    const valor = Number(e.target.value);
+    ctx.erroAdmissivel = valor >= 1 && valor <= 50 ? valor : 10;
+    render(ctx);
   });
 
   ligarEventos(ctx, dadosPorTalhao);

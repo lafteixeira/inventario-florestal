@@ -143,6 +143,71 @@ export function estatisticasDescritivas(valores) {
   return { n, media, desvio, cv, erro };
 }
 
+// Área basal de uma árvore (m²) a partir do DAP em cm: g = π/4 · DAP².
+export function areaBasalArvore(dapCm) {
+  return (Math.PI / 4) * (dapCm / 100) ** 2;
+}
+
+// Área basal por hectare (G, m²/ha) de uma parcela: só árvores dentro do
+// critério de inclusão (DAP mínimo); falhas ficam de fora. Null sem área válida.
+export function areaBasalPorHa(medicoes, areaParcelaM2) {
+  if (!areaParcelaM2 || areaParcelaM2 <= 0) return null;
+  const incluidas = arvoresIncluidas(medicoesValidasComDap(medicoes));
+  const soma = incluidas.reduce((acc, m) => acc + areaBasalArvore(m.dap), 0);
+  return (soma * 10000) / areaParcelaM2;
+}
+
+// Suficiência amostral pela área basal, no nível do projeto: a unidade amostral
+// é a parcela. `gPorParcela` = G (m²/ha) de cada parcela concluída;
+// `populacao` = nº de parcelas que cabem na área total (N), ou null se não houver
+// área cadastrada em todos os talhões (aí usa a fórmula sem correção).
+// n = t²·CV²·N / (N·E² + t²·CV²)  (CV e E em %), com t iterado pelos gl = n−1.
+export function suficienciaAmostral(gPorParcela, populacao, erroAdmissivelPct = 10) {
+  const n = gPorParcela.length;
+  const d = estatisticasDescritivas(gPorParcela);
+  const resultado = {
+    n,
+    media: d.media,
+    desvio: d.desvio,
+    cv: d.cv,
+    erroAtual: null,
+    nNecessario: null,
+    faltam: null,
+    populacao,
+    erroAdmissivelPct,
+  };
+  if (n < 2 || !d.cv) return resultado;
+
+  const comCorrecao = populacao != null && populacao > 0;
+  const calc = (t) => {
+    const t2cv2 = t * t * d.cv * d.cv;
+    const bruto = comCorrecao
+      ? (t2cv2 * populacao) / (populacao * erroAdmissivelPct ** 2 + t2cv2)
+      : t2cv2 / erroAdmissivelPct ** 2;
+    return Math.max(2, Math.ceil(bruto));
+  };
+
+  const t = valorT(n - 1);
+  const fpc = comCorrecao ? Math.sqrt(Math.max(0, 1 - n / populacao)) : 1;
+  resultado.erroAtual = ((t * d.desvio) / Math.sqrt(n)) * fpc / d.media * 100;
+
+  let atual = calc(valorT(n - 1));
+  let anterior = null;
+  for (let i = 0; i < 20; i++) {
+    const proximo = calc(valorT(Math.max(1, atual - 1)));
+    if (proximo === atual) break;
+    if (proximo === anterior) {
+      atual = Math.max(atual, proximo);
+      break;
+    }
+    anterior = atual;
+    atual = proximo;
+  }
+  resultado.nNecessario = atual;
+  resultado.faltam = Math.max(0, atual - n);
+  return resultado;
+}
+
 // Estatísticas da tela "Parcelas": grupos separados "só CAP" (sem altura) e "CAP + altura"
 // (seção 4 do log), mais a altura média a partir do subconjunto com altura medida.
 export function estatisticasParcela(medicoes) {

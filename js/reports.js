@@ -1,5 +1,5 @@
 import * as db from './db.js';
-import { capParaDap, estatisticasParcela, estatisticasAgregadas } from './stats.js';
+import { capParaDap, estatisticasParcela, estatisticasAgregadas, areaBasalPorHa } from './stats.js';
 import { QUALIDADES } from './validation.js';
 
 // CSV padrão (separador ',', decimal '.', UTF-8 sem BOM) — lido por pd.read_csv()
@@ -83,7 +83,7 @@ export async function gerarCsvEstatisticasParcelas(fazenda) {
       'Talhão', 'Parcela', 'Área (m2)', 'Status',
       'n só CAP', 'DAP médio só CAP (cm)',
       'n CAP+altura', 'DAP médio CAP+altura (cm)', 'CV% (CAP+altura)', 'Erro% (CAP+altura)',
-      'Altura média (m)', 'CV% altura', 'Erro% altura', 'Falhas',
+      'Altura média (m)', 'CV% altura', 'Erro% altura', 'Falhas', 'G (m2/ha)',
     ]),
   ];
   for (const { talhao, parcelas } of estrutura) {
@@ -105,6 +105,7 @@ export async function gerarCsvEstatisticasParcelas(fazenda) {
           num(s.alturaMedia.cv, 1),
           num(s.alturaMedia.erro, 1),
           s.falhas,
+          num(areaBasalPorHa(medicoes, parcela.area), 2),
         ])
       );
     }

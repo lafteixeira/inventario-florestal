@@ -5,6 +5,7 @@ import {
   distribuicaoPercentual,
   arvoresParaMedirAltura,
   estatisticasParcela,
+  areaBasalPorHa,
   DAP_MINIMO_INCLUSAO,
 } from '../stats.js';
 import { confirmar } from '../confirmacao.js';
@@ -141,7 +142,7 @@ function renderAnalise(parcela, medicoes, unidade) {
   const rotulo = unidade === 'cap' ? 'CAP' : 'DAP';
 
   return `
-    <p>Área: <strong>${fmt(parcela.area, 1)} m²</strong></p>
+    <p>Área: <strong>${fmt(parcela.area, 1)} m²</strong> · Área basal (G): <strong>${fmt(areaBasalPorHa(medicoes, parcela.area), 2)} m²/ha</strong></p>
 
     <div class="grid-stats">
       <div class="cartao-stat">

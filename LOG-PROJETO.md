@@ -1,7 +1,7 @@
 # Log do Projeto — Inventário Florestal (PWA)
 
 **Última atualização deste documento:** 13/09/2026
-**Versão atual do app:** 1.1.0 (ver `js/versao.js`)
+**Versão atual do app:** 1.2.0 na branch `feature/area-basal` (a `main` está em 1.1.0, tag `v1.1.0`) — ver `js/versao.js`
 **Status:** em uso para testes de campo com equipe
 
 ---
@@ -153,6 +153,8 @@ Implementado em `js/stats.js`:
 - **Estatísticas agregadas** (`estatisticasAgregadas`, usada em Talhões/geral): DAP combinado de todas as árvores válidas + altura média do subconjunto com altura.
 - **Sugestão de mais medições de altura** (`classesComDeficitDeAltura`): compara, por classe diamétrica, o % que a classe representa na parcela toda vs. o % que representa entre as árvores já com altura medida; diferença acima de um limiar (3 pontos percentuais, ajustável) sinaliza a classe como prioritária.
 - **Árvores elegíveis para medir altura** (`arvoresParaMedirAltura`): a partir do déficit por classe, filtra exatamente as árvores só-CAP que pertencem a uma classe em déficit — a lista exata de candidatas para a próxima medição, agrupada por classe na ordem de prioridade.
+- **Área basal** (`areaBasalArvore`, `areaBasalPorHa`): g = π/4·DAP² (m²); G (m²/ha) = Σg ÷ área da parcela × 10.000, só árvores com DAP ≥ 5 cm, falhas fora. Mostrada na tela Parcelas e na coluna `G (m2/ha)` do CSV de parcelas.
+- **Suficiência amostral** (`suficienciaAmostral`), **só no nível do projeto** (card na tela Talhões): unidade amostral = parcela concluída (a em andamento não entra); CV% de G entre parcelas; n = t²·CV²·N / (N·E² + t²·CV²), com t iterado por n−1 gl (95% de confiança) e N = área total dos talhões ÷ área média das parcelas. Se algum talhão não tiver área, usa a fórmula sem correção e avisa. Erro admissível padrão 10%, editável na tela. Quando a iteração oscila entre dois valores, adota o maior (conservador).
 - Toggle de exibição DAP/CAP nas telas Parcelas/Talhões: conversão por fator π aplicada só a médias/desvios — CV% e erro amostral são invariantes de escala (mesmos valores nas duas unidades).
 - Árvores marcadas como Falha são excluídas de todos os cálculos acima, mas contam em um contador separado.
 
@@ -193,7 +195,8 @@ Implementado em `js/stats.js`:
 | 13/09/2026 | `5658f89` | Lista exata de árvores elegíveis para medição de altura (linha/árvore/CAP) na tela Parcelas, além do alerta por classe já existente. |
 | 13/09/2026 | `7eabfae` | Códigos de Qualidade atualizados para o padrão de 12 categorias do contratante (substituindo a lista provisória de 5 categorias inicial). |
 | 13/09/2026 | `a80628f` | Versão do app explícita na tela Projetos + atualização 100% manual do Service Worker (nunca aplica uma versão nova sozinho) — preparação para os testes de campo com a equipe. |
-| 13/09/2026 | *(pendente)* | Primeiro ajuste vindo do teste de campo: histograma de classes diamétricas passa a começar no DAP mínimo de inclusão (5 cm) em vez de zero, mantendo amplitude de 2 cm; alerta na tela Coleta quando o CAP digitado resulta em DAP abaixo desse mínimo; nota na tela Parcelas informando quantas árvores da parcela ficaram fora da distribuição por esse motivo. Versão 1.1.0. |
+| 13/09/2026 | `9347cd1` | Primeiro ajuste vindo do teste de campo: histograma de classes diamétricas passa a começar no DAP mínimo de inclusão (5 cm) em vez de zero, mantendo amplitude de 2 cm; alerta na tela Coleta quando o CAP digitado resulta em DAP abaixo desse mínimo; nota na tela Parcelas informando quantas árvores da parcela ficaram fora da distribuição por esse motivo. Versão 1.1.0 (tag `v1.1.0`). |
+| 05/11/2026 | *(branch `feature/area-basal`)* | Área basal por parcela (G, m²/ha) e suficiência amostral do projeto pela área basal (parcelas concluídas, t de Student, correção de população finita, erro admissível editável); coluna G no CSV de parcelas. Versão 1.2.0. Planejamento do piloto em `PLANO-PILOTO.md`. |
 
 ## 14. Limitações conhecidas / próximos passos
 
