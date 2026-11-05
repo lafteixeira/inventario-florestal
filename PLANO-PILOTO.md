@@ -36,9 +36,8 @@ Tela inicial **Projetos** (mantida). Dentro de um projeto aberto, quatro abas, n
 - **Acesso a Projetos:** o cabeçalho (nome do projeto) fica sempre visível e tem um botão **Projetos**. Ele abre a tela de Projetos sem fechar o projeto atual; ali, um botão **Voltar** (e o próprio projeto aberto, destacado na lista) retorna à última aba usada, com o estado preservado. Projetos não faz parte do ciclo de deslize entre abas.
 - Ao abrir um projeto que já tem parcela em andamento, o app entra direto na **Coleta**; projeto novo abre em **Cadastro**.
 
-- A navegação entre abas é por **deslize horizontal** (swipe). A barra de abas continua visível e tocável, com indicador da aba atual.
-- Regras para o deslize não atrapalhar: limiar mínimo de ~60 px na horizontal e ângulo quase horizontal; ignorar quando o toque começa em campo de texto, tabela com rolagem horizontal ou no histograma; respeitar o gesto de voltar do sistema (borda da tela); o estado de cada aba é preservado ao trocar (nada digitado se perde); respeitar `prefers-reduced-motion`.
-- Na Coleta, o deslize fica desativado enquanto o teclado está aberto, para evitar troca acidental durante a digitação.
+- **Decisão após o teste no celular (05/11/2026):** a navegação entre abas é **só por toque** na barra de abas. O deslize lateral foi implementado, testado em campo e removido: exigia muitas condições para não atrapalhar a digitação e era difícil de acertar com o dedo. Pode ser reavaliado no futuro.
+- **Status:** a estrutura de quatro abas (Cadastro, Coleta, Análise, Dados) e a Coleta enxuta estão implementadas na versão 1.4.0 (branch `feature/navegacao`). Ainda **não** implementados: perfis coordenador/coletor, pacotes de campo, UUID nas medições, licença do app e mapa offline.
 
 ## 4. Abas
 

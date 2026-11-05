@@ -1,21 +1,5 @@
 import * as db from '../db.js';
 import { estatisticasAgregadas, areaBasalPorHa, suficienciaAmostral } from '../stats.js';
-import {
-  gerarCsvMedicoes,
-  gerarCsvEstatisticasParcelas,
-  gerarCsvEstatisticasTalhoes,
-  baixarCsv,
-} from '../reports.js';
-import { confirmar } from '../confirmacao.js';
-
-function slug(texto) {
-  return texto
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .toLowerCase();
-}
 
 function fmt(valor, casas = 1) {
   return valor == null || Number.isNaN(valor) ? '—' : valor.toFixed(casas);
@@ -133,7 +117,7 @@ async function render(ctx) {
 
       <h3>Suficiência amostral (área basal)</h3>
       <label>Erro admissível (%) — 95% de confiança
-        <input id="erro-admissivel" type="number" min="1" max="50" step="1" value="${ctx.erroAdmissivel}">
+        <input id="erro-admissivel" type="text" inputmode="numeric" value="${ctx.erroAdmissivel}">
       </label>
       ${renderSuficiencia(calcularSuficiencia(dadosPorTalhao, ctx.erroAdmissivel))}
 
@@ -143,18 +127,11 @@ async function render(ctx) {
           <thead>
             <tr>
               <th></th><th>Talhão</th><th>Status</th><th>Parcelas</th><th>Árvores</th>
-              <th>${rotulo} médio</th><th>Altura média</th><th>CV%</th><th>Erro%</th><th></th>
+              <th>${rotulo} médio</th><th>Altura média</th><th>CV%</th><th>Erro%</th>
             </tr>
           </thead>
           <tbody>${linhas.join('')}</tbody>
         </table>
-      </div>
-
-      <h3>Exportar relatórios</h3>
-      <div class="acoes">
-        <button type="button" id="btn-export-medicoes">Medições (CSV)</button>
-        <button type="button" id="btn-export-parcelas">Estatísticas por parcela (CSV)</button>
-        <button type="button" id="btn-export-talhoes">Estatísticas por talhão (CSV)</button>
       </div>
     </section>
   `;
@@ -173,27 +150,6 @@ async function render(ctx) {
   });
 
   ligarEventos(ctx, dadosPorTalhao);
-  ligarEventosExportacao(ctx);
-}
-
-function ligarEventosExportacao(ctx) {
-  const base = slug(ctx.fazenda.nome) || 'fazenda';
-  const hoje = new Date().toISOString().slice(0, 10);
-
-  ctx.container.querySelector('#btn-export-medicoes').addEventListener('click', async () => {
-    const csv = await gerarCsvMedicoes(ctx.fazenda);
-    baixarCsv(`medicoes-${base}-${hoje}.csv`, csv);
-  });
-
-  ctx.container.querySelector('#btn-export-parcelas').addEventListener('click', async () => {
-    const csv = await gerarCsvEstatisticasParcelas(ctx.fazenda);
-    baixarCsv(`estatisticas-parcelas-${base}-${hoje}.csv`, csv);
-  });
-
-  ctx.container.querySelector('#btn-export-talhoes').addEventListener('click', async () => {
-    const csv = await gerarCsvEstatisticasTalhoes(ctx.fazenda);
-    baixarCsv(`estatisticas-talhoes-${base}-${hoje}.csv`, csv);
-  });
 }
 
 async function linhaTalhao(ctx, { talhao, parcelas, stats }) {
@@ -210,9 +166,6 @@ async function linhaTalhao(ctx, { talhao, parcelas, stats }) {
       <td>${fmt(stats.altura.media, 2)}</td>
       <td>${fmt(stats.dap.cv, 1)}</td>
       <td>${fmt(stats.dap.erro, 1)}</td>
-      <td>
-        <button type="button" class="btn-apagar-talhao btn-perigo" data-talhao-id="${talhao.id}" data-rotulo="${rotuloTalhao(talhao)}" data-parcelas="${parcelas.length}" data-arvores="${stats.n}">Apagar</button>
-      </td>
     </tr>
   `;
 
@@ -238,7 +191,6 @@ async function linhaTalhao(ctx, { talhao, parcelas, stats }) {
           <td>${fmt(s.altura.media, 2)}</td>
           <td>${fmt(s.dap.cv, 1)}</td>
           <td>${fmt(s.dap.erro, 1)}</td>
-          <td></td>
         </tr>
       `
     )
@@ -257,17 +209,4 @@ function ligarEventos(ctx, dadosPorTalhao) {
     });
   });
 
-  ctx.container.querySelectorAll('.btn-apagar-talhao').forEach((btn) => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const id = btn.dataset.talhaoId;
-      const ok = await confirmar(
-        `Apagar "${btn.dataset.rotulo}"? As ${btn.dataset.parcelas} parcelas e ${btn.dataset.arvores} árvores dele serão perdidas. Essa ação não pode ser desfeita.`
-      );
-      if (!ok) return;
-      await db.excluirTalhao(id);
-      ctx.expandidos.delete(id);
-      render(ctx);
-    });
-  });
 }

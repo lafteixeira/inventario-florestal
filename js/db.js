@@ -124,7 +124,35 @@ export async function listarFazendas() {
   return todas.sort((a, b) => (b.criadoEm || '').localeCompare(a.criadoEm || ''));
 }
 
-export async function criarFazenda({ nome, municipio, uf, contratante, endereco, responsavelTecnico }) {
+// Opções de coleta do projeto. Projetos antigos (sem esses campos) seguem o
+// comportamento original: linha e qualidade ligadas, sem somar 1,30 m.
+export function opcoesDoProjeto(fazenda) {
+  return {
+    usarLinha: fazenda.usarLinha ?? true,
+    usarQualidade: fazenda.usarQualidade ?? true,
+    somar130: fazenda.somar130 ?? false,
+  };
+}
+
+export async function atualizarOpcoesProjeto(fazendaId, opcoes) {
+  const db = await abrirDB();
+  const t = tx(db, ['fazendas'], 'readwrite');
+  const store = t.objectStore('fazendas');
+  const fazenda = await reqAsPromise(store.get(fazendaId));
+  fazenda.usarLinha = !!opcoes.usarLinha;
+  fazenda.usarQualidade = !!opcoes.usarQualidade;
+  fazenda.somar130 = !!opcoes.somar130;
+  store.put(fazenda);
+  return new Promise((resolve, reject) => {
+    t.oncomplete = () => resolve(fazenda);
+    t.onerror = () => reject(t.error);
+  });
+}
+
+export async function criarFazenda({
+  nome, municipio, uf, contratante, endereco, responsavelTecnico,
+  usarLinha = true, usarQualidade = true, somar130 = false,
+}) {
   const db = await abrirDB();
   const fazenda = {
     id: gerarId(),
@@ -134,6 +162,9 @@ export async function criarFazenda({ nome, municipio, uf, contratante, endereco,
     contratante: contratante || null,
     endereco: endereco || null,
     responsavelTecnico: responsavelTecnico || null,
+    usarLinha,
+    usarQualidade,
+    somar130,
     criadoEm: new Date().toISOString(),
   };
   const t = tx(db, ['fazendas'], 'readwrite');
@@ -374,6 +405,20 @@ export async function atualizarConfigParcela(parcelaId, { forma, comprimento, la
   parcela.largura = largura ?? null;
   parcela.raio = raio ?? null;
   parcela.area = calcularArea(forma, comprimento, largura, raio);
+  store.put(parcela);
+  return new Promise((resolve, reject) => {
+    t.oncomplete = () => resolve(parcela);
+    t.onerror = () => reject(t.error);
+  });
+}
+
+// Centro da parcela marcado com o GPS: { lat, lon, precisao (m), timestamp }.
+export async function atualizarCentroParcela(parcelaId, centro) {
+  const db = await abrirDB();
+  const t = tx(db, ['parcelas'], 'readwrite');
+  const store = t.objectStore('parcelas');
+  const parcela = await reqAsPromise(store.get(parcelaId));
+  parcela.centro = centro;
   store.put(parcela);
   return new Promise((resolve, reject) => {
     t.oncomplete = () => resolve(parcela);

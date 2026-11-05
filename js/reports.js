@@ -84,6 +84,7 @@ export async function gerarCsvEstatisticasParcelas(fazenda) {
       'n só CAP', 'DAP médio só CAP (cm)',
       'n CAP+altura', 'DAP médio CAP+altura (cm)', 'CV% (CAP+altura)', 'Erro% (CAP+altura)',
       'Altura média (m)', 'CV% altura', 'Erro% altura', 'Falhas', 'G (m2/ha)',
+      'Centro latitude', 'Centro longitude', 'Precisão do centro (m)',
     ]),
   ];
   for (const { talhao, parcelas } of estrutura) {
@@ -106,6 +107,9 @@ export async function gerarCsvEstatisticasParcelas(fazenda) {
           num(s.alturaMedia.erro, 1),
           s.falhas,
           num(areaBasalPorHa(medicoes, parcela.area), 2),
+          num(parcela.centro?.lat, 6),
+          num(parcela.centro?.lon, 6),
+          num(parcela.centro?.precisao, 0),
         ])
       );
     }

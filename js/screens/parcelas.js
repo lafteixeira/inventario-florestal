@@ -25,21 +25,26 @@ function rotuloTalhao(talhao) {
 }
 
 export async function initParcelas(container, fazenda) {
-  const talhao =
-    (await db.getTalhaoEmAndamento(fazenda.id)) || (await db.getTalhoesDaFazenda(fazenda.id)).at(-1);
+  const talhoes = await db.getTalhoesDaFazenda(fazenda.id);
+  const talhao = (await db.getTalhaoEmAndamento(fazenda.id)) || talhoes.at(-1);
 
-  const ctx = { container, fazenda, talhao, parcelas: [], parcelaSelecionadaId: null, editandoId: null, unidade: 'dap' };
+  const ctx = { container, fazenda, talhoes, talhao, parcelas: [], parcelaSelecionadaId: null, editandoId: null, unidade: 'dap' };
 
   if (!talhao) {
     container.innerHTML = '<section class="painel"><p>Nenhum talhão iniciado ainda.</p></section>';
     return;
   }
 
+  await selecionarTalhao(ctx, talhao);
+  await render(ctx);
+}
+
+async function selecionarTalhao(ctx, talhao) {
+  ctx.talhao = talhao;
   ctx.parcelas = await db.getParcelasDoTalhao(talhao.id);
   const parcelaEmAndamento = await db.getParcelaEmAndamento(talhao.id);
   ctx.parcelaSelecionadaId = parcelaEmAndamento?.id || ctx.parcelas.at(-1)?.id || null;
-
-  await render(ctx);
+  ctx.editandoId = null;
 }
 
 async function render(ctx) {
@@ -57,7 +62,17 @@ async function render(ctx) {
 
   ctx.container.innerHTML = `
     <section class="painel">
-      <h2>Parcelas · ${rotuloTalhao(ctx.talhao)}</h2>
+      ${
+        ctx.talhoes.length > 1
+          ? `<label>Talhão
+              <select id="seletor-talhao">
+                ${ctx.talhoes
+                  .map((t) => `<option value="${t.id}" ${t.id === ctx.talhao.id ? 'selected' : ''}>${rotuloTalhao(t)}</option>`)
+                  .join('')}
+              </select>
+            </label>`
+          : `<h3>${rotuloTalhao(ctx.talhao)}</h3>`
+      }
       <p class="contador">
         Parcelas: <strong>${comDados.length}</strong>
         (${ctx.parcelas.filter((p) => p.status === 'concluida').length} concluídas) ·
@@ -85,17 +100,14 @@ async function render(ctx) {
         </label>
       </div>
 
-      ${
-        parcelaSelecionada
-          ? `<div class="acoes">
-              <button type="button" id="btn-apagar-parcela" class="btn-perigo">Apagar Parcela ${parcelaSelecionada.numero}</button>
-            </div>`
-          : ''
-      }
-
       ${parcelaSelecionada ? renderAnalise(parcelaSelecionada, medicoes, ctx.unidade) : '<p>Sem parcelas.</p>'}
     </section>
   `;
+
+  ctx.container.querySelector('#seletor-talhao')?.addEventListener('change', async (e) => {
+    await selecionarTalhao(ctx, ctx.talhoes.find((t) => t.id === e.target.value));
+    render(ctx);
+  });
 
   ctx.container.querySelector('#seletor-parcela').addEventListener('change', (e) => {
     ctx.parcelaSelecionadaId = e.target.value;
@@ -109,21 +121,6 @@ async function render(ctx) {
       render(ctx);
     });
   });
-
-  const btnApagarParcela = ctx.container.querySelector('#btn-apagar-parcela');
-  if (btnApagarParcela) {
-    btnApagarParcela.addEventListener('click', async () => {
-      const ok = await confirmar(
-        `Apagar Parcela ${parcelaSelecionada.numero}? As ${medicoes.length} medições dela serão perdidas. Essa ação não pode ser desfeita.`
-      );
-      if (!ok) return;
-      await db.excluirParcela(parcelaSelecionada.id);
-      ctx.parcelas = await db.getParcelasDoTalhao(ctx.talhao.id);
-      const emAndamento = await db.getParcelaEmAndamento(ctx.talhao.id);
-      ctx.parcelaSelecionadaId = emAndamento?.id || ctx.parcelas.at(-1)?.id || null;
-      render(ctx);
-    });
-  }
 
   if (parcelaSelecionada) {
     ligarEventosTabela(ctx, medicoes);

@@ -1,6 +1,6 @@
 import { getTudo, getTudoDaFazenda, restaurarTudo } from './db.js';
 
-function slug(texto) {
+export function slug(texto) {
   return texto
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')

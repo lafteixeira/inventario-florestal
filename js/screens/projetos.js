@@ -117,6 +117,9 @@ function formularioNovoProjeto() {
       <label>Contratante/Cliente <input id="f-contratante" type="text"></label>
       <label>Endereço <input id="f-endereco" type="text"></label>
       <label>Responsável técnico <input id="f-responsavel" type="text"></label>
+      <h3>Opções de coleta</h3>
+      <label class="toggle"><input id="f-usar-linha" type="checkbox" checked> Usar número da linha</label>
+      <label class="toggle"><input id="f-usar-qualidade" type="checkbox" checked> Registrar qualidade do fuste</label>
       <div class="acoes">
         <button type="submit">Criar projeto</button>
         <button type="button" id="btn-cancelar-novo-projeto">Cancelar</button>
@@ -157,6 +160,8 @@ function ligarEventos(ctx) {
         contratante: $('#f-contratante').value.trim(),
         endereco: $('#f-endereco').value.trim(),
         responsavelTecnico: $('#f-responsavel').value.trim(),
+        usarLinha: $('#f-usar-linha').checked,
+        usarQualidade: $('#f-usar-qualidade').checked,
       });
       ctx.onAbrirProjeto(fazenda);
     });
