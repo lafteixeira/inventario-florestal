@@ -6,6 +6,12 @@ export const AMPLITUDE_CLASSE = 2; // cm — seção 4 do log
 // exibida é sempre [DAP_MINIMO_INCLUSAO, DAP_MINIMO_INCLUSAO + amplitude).
 export const DAP_MINIMO_INCLUSAO = 5;
 
+// Identificação da árvore na tela: "L3/A12", ou só "A12" quando o projeto não
+// registra linha (linha gravada como 0 = "linha não medida").
+export function rotuloArvore({ linha, arvore }) {
+  return linha > 0 ? `L${linha}/A${arvore}` : `A${arvore}`;
+}
+
 export function capParaDap(cap) {
   return cap / Math.PI;
 }

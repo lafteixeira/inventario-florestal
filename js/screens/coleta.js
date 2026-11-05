@@ -1,6 +1,6 @@
 import * as db from '../db.js';
 import { validarCap, validarAltura, QUALIDADES, QUALIDADE_FALHA } from '../validation.js';
-import { medicoesValidasComDap, classesComDeficitDeAltura } from '../stats.js';
+import { medicoesValidasComDap, classesComDeficitDeAltura, rotuloArvore } from '../stats.js';
 import { garantirTalhaoEParcela } from '../sessao.js';
 import { escolherQualidade } from '../seletorQualidade.js';
 
@@ -122,9 +122,12 @@ function atualizarResumo(ctx) {
     : null;
   const blocoUltima = $('#ultima-leitura');
   if (ultima) {
+    const altura = ultima.altura != null
+      ? ` · H ${ultima.altura.toFixed(1)}${ultima.somou130 ? ' (+1,30)' : ''}`
+      : '';
     const texto = ultima.falha
-      ? `L${ultima.linha}/A${ultima.arvore} · Falha`
-      : `L${ultima.linha}/A${ultima.arvore} · CAP ${ultima.cap}${ultima.altura != null ? ` · H ${ultima.altura.toFixed(1)}` : ''} · ${nomeQualidade(ultima.qualidade).letra}`;
+      ? `${rotuloArvore(ultima)} · Falha`
+      : `${rotuloArvore(ultima)} · CAP ${ultima.cap}${altura} · ${nomeQualidade(ultima.qualidade).letra}`;
     blocoUltima.innerHTML = '<span class="rotulo-campo">Última leitura</span><div class="linha-ultima"><strong class="texto-ultima"></strong><button type="button" id="btn-desfazer" class="btn-secundario">Desfazer</button></div>';
     blocoUltima.querySelector('.texto-ultima').textContent = texto;
     blocoUltima.querySelector('#btn-desfazer').addEventListener('click', () => desfazer(ctx));
@@ -241,9 +244,11 @@ async function tentarAdicionarMedicao(ctx) {
     return;
   }
 
-  const linha = ctx.opcoes.usarLinha ? Number($('#linha').value) : 1;
+  // Projeto sem linha: grava 0, que quer dizer "linha não medida" (e não repete 1, 1, 1...).
+  const linha = ctx.opcoes.usarLinha ? Number($('#linha').value) : 0;
   const arvore = Number($('#arvore').value);
-  if (!Number.isInteger(linha) || linha < 1 || !Number.isInteger(arvore) || arvore < 1) {
+  const linhaInvalida = ctx.opcoes.usarLinha && (!Number.isInteger(linha) || linha < 1);
+  if (linhaInvalida || !Number.isInteger(arvore) || arvore < 1) {
     mostrarMsg('Linha e árvore devem ser números inteiros a partir de 1.');
     return;
   }
@@ -275,7 +280,7 @@ async function tentarAdicionarMedicao(ctx) {
   const avisos = [
     resultadoCap.status === 'alerta' ? resultadoCap.mensagem : '',
     resultadoAltura.status === 'alerta' ? resultadoAltura.mensagem : '',
-    repetida ? `L${linha}/A${arvore} já existe nesta parcela.` : '',
+    repetida ? `${rotuloArvore({ linha, arvore })} já existe nesta parcela.` : '',
   ].filter(Boolean);
 
   if (avisos.length > 0 && !ctx.pendente) {
@@ -290,6 +295,7 @@ async function tentarAdicionarMedicao(ctx) {
     arvore,
     cap: falha ? 0 : resultadoCap.valor,
     altura: falha ? null : resultadoAltura.valor,
+    somou130: !falha && resultadoAltura.valor != null && ctx.opcoes.somar130,
     qualidade: falha ? QUALIDADE_FALHA : qualidadeSelecionada,
     falha,
   });

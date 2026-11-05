@@ -2,7 +2,7 @@
 // detecta uma versão nova comparando os bytes DESTE arquivo — se o nome do
 // cache viesse de um módulo importado, mudar só esse módulo não seria
 // percebido como atualização. Suba esse número junto com js/versao.js.
-const CACHE_NAME = 'inventario-florestal-shell-v1.4.1';
+const CACHE_NAME = 'inventario-florestal-shell-v1.4.2';
 const APP_SHELL = [
   './',
   './index.html',

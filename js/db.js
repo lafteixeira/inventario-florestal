@@ -509,8 +509,12 @@ export async function atualizarMedicao(id, { linha, arvore, cap, altura, qualida
   const falha = cap === 0 || qualidade === QUALIDADE_FALHA;
   medicao.linha = linha;
   medicao.arvore = arvore;
+  const novaAltura = falha ? null : altura;
+  // Altura corrigida à mão na edição já é o valor final: deixa de contar como
+  // "somada 1,30 m na digitação".
+  if (novaAltura == null || novaAltura !== medicao.altura) medicao.somou130 = false;
   medicao.cap = falha ? 0 : cap;
-  medicao.altura = falha ? null : altura;
+  medicao.altura = novaAltura;
   medicao.qualidade = falha ? QUALIDADE_FALHA : qualidade;
   medicao.falha = falha;
   store.put(medicao);

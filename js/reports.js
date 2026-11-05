@@ -49,7 +49,7 @@ export async function gerarCsvMedicoes(fazenda) {
   const linhas = [
     linhaCsv([
       'Talhão', 'Parcela', 'Linha', 'Árvore', 'CAP (cm)', 'DAP (cm)',
-      'Altura (m)', 'Qualidade', 'Falha', 'Registrado em',
+      'Altura (m)', 'Qualidade', 'Falha', 'Registrado em', 'Altura somou 1.30 m',
     ]),
   ];
   for (const { talhao, parcelas } of estrutura) {
@@ -67,6 +67,7 @@ export async function gerarCsvMedicoes(fazenda) {
             nomeQualidade(m.qualidade),
             m.falha ? 'Sim' : 'Não',
             m.timestamp || '',
+            m.altura != null ? (m.somou130 ? 'Sim' : 'Não') : '',
           ])
         );
       }

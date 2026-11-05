@@ -1,7 +1,7 @@
 # Log do Projeto — Inventário Florestal (PWA)
 
 **Última atualização deste documento:** 13/09/2026
-**Versão atual do app:** 1.4.1 na branch `feature/navegacao` (que contém a 1.2.0 de `feature/area-basal`); a `main` está em 1.1.0, tag `v1.1.0` — ver `js/versao.js`
+**Versão atual do app:** 1.4.2 na branch `feature/navegacao` (que contém a 1.2.0 de `feature/area-basal`); a `main` está em 1.1.0, tag `v1.1.0` — ver `js/versao.js`
 **Status:** em uso para testes de campo com equipe
 
 ---
@@ -167,7 +167,7 @@ Implementado em `js/stats.js`:
 
 - **Backup/restauração (JSON)** — `export.js`: backup completo (todos os projetos) ou de um projeto específico; usado para troca de aparelho ou recuperação. Importação substitui os dados do aparelho (com confirmação).
 - **Relatórios (CSV)** — `reports.js`, na tela Talhões:
-  - Medições (uma linha por árvore: talhão, parcela, linha, árvore, CAP, DAP, altura, qualidade, falha, timestamp).
+  - Medições (uma linha por árvore: talhão, parcela, linha, árvore, CAP, DAP, altura, qualidade, falha, timestamp, "Altura somou 1.30 m" Sim/Não). Linha 0 = projeto sem registro de linha.
   - Estatísticas por parcela.
   - Estatísticas por talhão (+ linha "GERAL" consolidando a fazenda).
   - Formato: separador `,`, decimal `.`, UTF-8 **sem BOM**, timestamp em ISO 8601 — lido por `pd.read_csv()` sem nenhum parâmetro extra (pensado para a próxima etapa do inventário em Python/pandas no Google Colab). Para abrir no Excel: Dados → Obter Dados → De Texto/CSV.
@@ -204,6 +204,7 @@ Implementado em `js/stats.js`:
 | 05/11/2026 | *(branch `feature/area-basal`)* | Área basal por parcela (G, m²/ha) e suficiência amostral do projeto pela área basal (parcelas concluídas, t de Student, correção de população finita, erro admissível editável); coluna G no CSV de parcelas. Versão 1.2.0. Planejamento do piloto em `PLANO-PILOTO.md`. |
 | 05/11/2026 | *(branch `feature/navegacao`)* | Navegação: deslize lateral entre as abas (ignorado em campos de texto, teclado aberto, leitura digitada e ainda não adicionada, tabelas com rolagem lateral, histograma, modal e borda da tela); botão **Projetos** sempre visível no topo, e na tela Projetos um botão grande **Voltar** que retorna à última aba usada (com o projeto marcado "aberto agora"); apagar o projeto aberto limpa o Voltar. Versão 1.3.0. (O deslize lateral foi removido na 1.4.0 depois do teste no celular.) |
 | 05/11/2026 | *(branch `feature/navegacao`)* | **Reestruturação em quatro abas (Cadastro, Coleta, Análise, Dados), versão 1.4.0**, a partir do primeiro teste de campo no celular: Coleta enxuta (campos grandes, steppers, Enter no CAP adiciona, qualidade em grade de letras, Adicionar fixo acima do teclado, última leitura + Desfazer, alertas curtos, aviso de árvore repetida); Cadastro com opções do projeto (linha, qualidade, somar 1,30 m), talhão novo pré-preenchido, centro da parcela por GPS, finalizar/concluir/apagar; Análise (parcela e projeto) com seletor de talhão; aba Dados (salvar, exportar, importar); sugestões do teclado desligadas; só toque nas abas (sem deslize). Não inclui ainda perfis coordenador/coletor, pacotes de campo, UUID nas medições, licença do app nem mapa. |
+| 05/11/2026 | *(branch `feature/navegacao`)* | **1.4.2 — rastreabilidade na gravação**: projeto sem linha grava **linha = 0** ("linha não medida", em vez de repetir 1, 1, 1); projeto sem qualidade grava Normal (código 0); cada medição passa a ter o campo `somou130` (a altura gravada já inclui +1,30 m somado na digitação, arredondada a 2 casas); na tabela de medições a altura somada aparece em negrito/âmbar com "+" e legenda, e o CSV de medições ganhou a coluna `Altura somou 1.30 m` (Sim/Não). Corrigir a altura à mão na edição desliga a marca. |
 | 05/11/2026 | *(branch `feature/navegacao`)* | **1.4.1 — Coleta compacta para o teclado aberto**, após o segundo teste no celular: CAP e Altura lado a lado; steppers de Linha/Árvore com números legíveis; topo reduzido; botão Adicionar removido; OK no CAP vai para a Altura e OK na Altura registra a árvore e volta ao CAP. |
 
 ## 14. Limitações conhecidas / próximos passos

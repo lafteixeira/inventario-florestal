@@ -715,3 +715,17 @@ td input, td select {
 .linha-lista .ajuda { display: block; margin: 0; }
 
 .alternador-analise { margin-bottom: 1rem; }
+/* ---------- Altura com +1,30 m somado na digitação ---------- */
+
+.altura-somada {
+  font-weight: 700;
+  color: #8a4b00;
+  background: #fff1d6;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+}
+
+.legenda-altura-somada {
+  font-size: 0.85rem;
+  color: #555;
+}

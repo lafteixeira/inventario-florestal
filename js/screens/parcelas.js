@@ -6,6 +6,7 @@ import {
   arvoresParaMedirAltura,
   estatisticasParcela,
   areaBasalPorHa,
+  rotuloArvore,
   DAP_MINIMO_INCLUSAO,
 } from '../stats.js';
 import { confirmar } from '../confirmacao.js';
@@ -174,7 +175,7 @@ function renderAnalise(parcela, medicoes, unidade) {
                 .map(
                   (g) =>
                     `<li><strong>${g.labelCap} cm:</strong> ${g.arvores
-                      .map((a) => `L${a.linha}/A${a.arvore} (CAP ${a.cap})`)
+                      .map((a) => `${rotuloArvore(a)} (CAP ${a.cap})`)
                       .join(' · ')}</li>`
                 )
                 .join('')}
@@ -197,6 +198,13 @@ function renderAnalise(parcela, medicoes, unidade) {
         </tbody>
       </table>
     </div>
+    ${
+      medicoes.some((m) => m.somou130)
+        ? '<p class="legenda-altura-somada"><span class="altura-somada">12.00 +</span> = altura com <strong>+1,30 m somado na digitação</strong> (a leitura foi feita a partir do peito, não do chão). Linha "—" = linha não medida (gravada como 0).</p>'
+        : medicoes.some((m) => m.linha === 0)
+          ? '<p class="legenda-altura-somada">Linha "—" = linha não medida (gravada como 0).</p>'
+          : ''
+    }
   `;
 }
 
@@ -258,11 +266,17 @@ function linhaTabela(m) {
   const dap = m.falha ? null : m.cap / Math.PI;
   return `
     <tr data-id="${m.id}">
-      <td>${m.linha}</td>
+      <td>${m.linha > 0 ? m.linha : '—'}</td>
       <td>${m.arvore}</td>
       <td>${m.falha ? 'Falha' : m.cap}</td>
       <td>${dap != null ? dap.toFixed(1) : '—'}</td>
-      <td>${m.altura != null ? m.altura.toFixed(2) : '—'}</td>
+      <td>${
+        m.altura == null
+          ? '—'
+          : m.somou130
+            ? `<span class="altura-somada" title="Inclui +1,30 m somado na digitação">${m.altura.toFixed(2)} +</span>`
+            : m.altura.toFixed(2)
+      }</td>
       <td>${nomeQualidade(m.qualidade)}</td>
       <td class="acoes-tabela">
         <button type="button" class="btn-editar" data-id="${m.id}">Editar</button>
@@ -275,7 +289,7 @@ function linhaTabela(m) {
 function linhaEdicao(m) {
   return `
     <tr data-id="${m.id}">
-      <td><input type="number" min="1" step="1" class="ed-linha" value="${m.linha}"></td>
+      <td><input type="number" min="0" step="1" class="ed-linha" value="${m.linha}"></td>
       <td><input type="number" min="1" step="1" class="ed-arvore" value="${m.arvore}"></td>
       <td><input type="text" inputmode="decimal" class="ed-cap" value="${m.falha ? 0 : m.cap}"></td>
       <td>—</td>

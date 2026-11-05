@@ -59,7 +59,7 @@ export function validarAltura(texto, somar130) {
   if (Number.isNaN(valor) || valor < 0) {
     return { status: 'invalido', valor: null, mensagem: 'Altura inválida.' };
   }
-  if (somar130) valor += 1.3;
+  if (somar130) valor = Math.round((valor + 1.3) * 100) / 100;
 
   if (valor < ALTURA_BLOQUEIO[0] || valor > ALTURA_BLOQUEIO[1]) {
     return {
