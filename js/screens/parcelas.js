@@ -5,6 +5,8 @@ import {
   distribuicaoPercentual,
   arvoresParaMedirAltura,
   estatisticasParcela,
+  areaBasalPorHa,
+  rotuloArvore,
   DAP_MINIMO_INCLUSAO,
 } from '../stats.js';
 import { confirmar } from '../confirmacao.js';
@@ -24,21 +26,26 @@ function rotuloTalhao(talhao) {
 }
 
 export async function initParcelas(container, fazenda) {
-  const talhao =
-    (await db.getTalhaoEmAndamento(fazenda.id)) || (await db.getTalhoesDaFazenda(fazenda.id)).at(-1);
+  const talhoes = await db.getTalhoesDaFazenda(fazenda.id);
+  const talhao = (await db.getTalhaoEmAndamento(fazenda.id)) || talhoes.at(-1);
 
-  const ctx = { container, fazenda, talhao, parcelas: [], parcelaSelecionadaId: null, editandoId: null, unidade: 'dap' };
+  const ctx = { container, fazenda, talhoes, talhao, parcelas: [], parcelaSelecionadaId: null, editandoId: null, unidade: 'dap' };
 
   if (!talhao) {
     container.innerHTML = '<section class="painel"><p>Nenhum talhão iniciado ainda.</p></section>';
     return;
   }
 
+  await selecionarTalhao(ctx, talhao);
+  await render(ctx);
+}
+
+async function selecionarTalhao(ctx, talhao) {
+  ctx.talhao = talhao;
   ctx.parcelas = await db.getParcelasDoTalhao(talhao.id);
   const parcelaEmAndamento = await db.getParcelaEmAndamento(talhao.id);
   ctx.parcelaSelecionadaId = parcelaEmAndamento?.id || ctx.parcelas.at(-1)?.id || null;
-
-  await render(ctx);
+  ctx.editandoId = null;
 }
 
 async function render(ctx) {
@@ -56,7 +63,17 @@ async function render(ctx) {
 
   ctx.container.innerHTML = `
     <section class="painel">
-      <h2>Parcelas · ${rotuloTalhao(ctx.talhao)}</h2>
+      ${
+        ctx.talhoes.length > 1
+          ? `<label>Talhão
+              <select id="seletor-talhao">
+                ${ctx.talhoes
+                  .map((t) => `<option value="${t.id}" ${t.id === ctx.talhao.id ? 'selected' : ''}>${rotuloTalhao(t)}</option>`)
+                  .join('')}
+              </select>
+            </label>`
+          : `<h3>${rotuloTalhao(ctx.talhao)}</h3>`
+      }
       <p class="contador">
         Parcelas: <strong>${comDados.length}</strong>
         (${ctx.parcelas.filter((p) => p.status === 'concluida').length} concluídas) ·
@@ -84,17 +101,14 @@ async function render(ctx) {
         </label>
       </div>
 
-      ${
-        parcelaSelecionada
-          ? `<div class="acoes">
-              <button type="button" id="btn-apagar-parcela" class="btn-perigo">Apagar Parcela ${parcelaSelecionada.numero}</button>
-            </div>`
-          : ''
-      }
-
       ${parcelaSelecionada ? renderAnalise(parcelaSelecionada, medicoes, ctx.unidade) : '<p>Sem parcelas.</p>'}
     </section>
   `;
+
+  ctx.container.querySelector('#seletor-talhao')?.addEventListener('change', async (e) => {
+    await selecionarTalhao(ctx, ctx.talhoes.find((t) => t.id === e.target.value));
+    render(ctx);
+  });
 
   ctx.container.querySelector('#seletor-parcela').addEventListener('change', (e) => {
     ctx.parcelaSelecionadaId = e.target.value;
@@ -108,21 +122,6 @@ async function render(ctx) {
       render(ctx);
     });
   });
-
-  const btnApagarParcela = ctx.container.querySelector('#btn-apagar-parcela');
-  if (btnApagarParcela) {
-    btnApagarParcela.addEventListener('click', async () => {
-      const ok = await confirmar(
-        `Apagar Parcela ${parcelaSelecionada.numero}? As ${medicoes.length} medições dela serão perdidas. Essa ação não pode ser desfeita.`
-      );
-      if (!ok) return;
-      await db.excluirParcela(parcelaSelecionada.id);
-      ctx.parcelas = await db.getParcelasDoTalhao(ctx.talhao.id);
-      const emAndamento = await db.getParcelaEmAndamento(ctx.talhao.id);
-      ctx.parcelaSelecionadaId = emAndamento?.id || ctx.parcelas.at(-1)?.id || null;
-      render(ctx);
-    });
-  }
 
   if (parcelaSelecionada) {
     ligarEventosTabela(ctx, medicoes);
@@ -141,7 +140,7 @@ function renderAnalise(parcela, medicoes, unidade) {
   const rotulo = unidade === 'cap' ? 'CAP' : 'DAP';
 
   return `
-    <p>Área: <strong>${fmt(parcela.area, 1)} m²</strong></p>
+    <p>Área: <strong>${fmt(parcela.area, 1)} m²</strong> · Área basal (G): <strong>${fmt(areaBasalPorHa(medicoes, parcela.area), 2)} m²/ha</strong></p>
 
     <div class="grid-stats">
       <div class="cartao-stat">
@@ -176,7 +175,7 @@ function renderAnalise(parcela, medicoes, unidade) {
                 .map(
                   (g) =>
                     `<li><strong>${g.labelCap} cm:</strong> ${g.arvores
-                      .map((a) => `L${a.linha}/A${a.arvore} (CAP ${a.cap})`)
+                      .map((a) => `${rotuloArvore(a)} (CAP ${a.cap})`)
                       .join(' · ')}</li>`
                 )
                 .join('')}
@@ -199,6 +198,13 @@ function renderAnalise(parcela, medicoes, unidade) {
         </tbody>
       </table>
     </div>
+    ${
+      medicoes.some((m) => m.somou130)
+        ? '<p class="legenda-altura-somada"><span class="altura-somada">12.00 +</span> = altura com <strong>+1,30 m somado na digitação</strong> (a leitura foi feita a partir do peito, não do chão). Linha "—" = linha não medida (gravada como 0).</p>'
+        : medicoes.some((m) => m.linha === 0)
+          ? '<p class="legenda-altura-somada">Linha "—" = linha não medida (gravada como 0).</p>'
+          : ''
+    }
   `;
 }
 
@@ -260,11 +266,17 @@ function linhaTabela(m) {
   const dap = m.falha ? null : m.cap / Math.PI;
   return `
     <tr data-id="${m.id}">
-      <td>${m.linha}</td>
+      <td>${m.linha > 0 ? m.linha : '—'}</td>
       <td>${m.arvore}</td>
       <td>${m.falha ? 'Falha' : m.cap}</td>
       <td>${dap != null ? dap.toFixed(1) : '—'}</td>
-      <td>${m.altura != null ? m.altura.toFixed(2) : '—'}</td>
+      <td>${
+        m.altura == null
+          ? '—'
+          : m.somou130
+            ? `<span class="altura-somada" title="Inclui +1,30 m somado na digitação">${m.altura.toFixed(2)} +</span>`
+            : m.altura.toFixed(2)
+      }</td>
       <td>${nomeQualidade(m.qualidade)}</td>
       <td class="acoes-tabela">
         <button type="button" class="btn-editar" data-id="${m.id}">Editar</button>
@@ -277,7 +289,7 @@ function linhaTabela(m) {
 function linhaEdicao(m) {
   return `
     <tr data-id="${m.id}">
-      <td><input type="number" min="1" step="1" class="ed-linha" value="${m.linha}"></td>
+      <td><input type="number" min="0" step="1" class="ed-linha" value="${m.linha}"></td>
       <td><input type="number" min="1" step="1" class="ed-arvore" value="${m.arvore}"></td>
       <td><input type="text" inputmode="decimal" class="ed-cap" value="${m.falha ? 0 : m.cap}"></td>
       <td>—</td>

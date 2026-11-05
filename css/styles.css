@@ -23,8 +23,8 @@ body {
 .topo {
   background: var(--verde);
   color: white;
-  padding: 1rem;
-  font-size: 1.1rem;
+  padding: 0.6rem 1rem;
+  font-size: 1.05rem;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -48,11 +48,34 @@ body {
   padding: 0.4rem 0.7rem;
 }
 
+.btn-voltar-projeto {
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.9rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.cartao-projeto.aberto {
+  border-color: var(--verde);
+  border-width: 2px;
+}
+
+.selo-aberto {
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--verde-claro);
+  color: var(--verde);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  vertical-align: middle;
+}
+
 .nav-telas {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.35rem;
   background: #0c3d26;
-  padding: 0.5rem 1rem;
+  padding: 0.4rem 0.6rem;
 }
 
 .nav-telas button {
@@ -60,8 +83,8 @@ body {
   flex: 1;
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.35);
-  font-size: 0.95rem;
-  padding: 0.5rem 0.6rem;
+  font-size: 0.9rem;
+  padding: 0.6rem 0.2rem;
 }
 
 .nav-telas button.ativa {
@@ -513,4 +536,196 @@ td input, td select {
   border-radius: 10px;
   padding: 0.8rem;
   margin: 1rem 0;
+}
+
+/* ---------- Coleta enxuta (digitação em campo, uso na vertical) ---------- */
+
+.btn-secundario { background: #4b5b52; }
+
+.btn-pequeno {
+  width: auto;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.acoes-empilhadas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.painel-coleta { padding: 0.8rem; }
+
+.cabecalho-coleta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 1.1rem;
+  margin-bottom: 0.6rem;
+}
+
+.aviso-area {
+  background: #fff3e0;
+  color: var(--alerta);
+  border: 1px solid var(--alerta);
+  border-radius: 8px;
+  padding: 0.6rem;
+  margin-bottom: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rotulo-campo {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.campo-stepper { flex: 1; min-width: 0; margin-bottom: 0.5rem; }
+
+.stepper {
+  display: grid;
+  grid-template-columns: 2.6rem minmax(0, 1fr) 2.6rem;
+  gap: 0.25rem;
+  margin-top: 0.15rem;
+}
+
+.stepper .passo {
+  padding: 0;
+  font-size: 1.5rem;
+  min-height: 3rem;
+  background: #4b5b52;
+}
+
+.stepper input {
+  min-width: 0;
+  padding: 0.2rem;
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: 600;
+  min-height: 3rem;
+}
+
+.linha-cap-altura { gap: 0.5rem; margin-bottom: 0.5rem; }
+.linha-cap-altura label { min-width: 0; margin-bottom: 0; }
+
+.campo-grande-rotulo { font-size: 0.9rem; }
+
+.campo-grande {
+  min-width: 0;
+  font-size: 1.8rem;
+  min-height: 3.4rem;
+  padding: 0.3rem 0.6rem;
+  text-align: center;
+}
+
+.btn-qualidade {
+  text-align: left;
+  font-size: 0.9rem;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Coleta: aproveitar cada pixel com o teclado aberto (metade da tela). */
+#app.modo-coleta { padding: 0.4rem; }
+#app.modo-coleta .painel-coleta { padding: 0.5rem; margin-bottom: 0; }
+
+@media (max-width: 480px) {
+  body.projeto-aberto .topo strong { display: none; }
+  .topo { padding: 0.4rem 0.6rem; }
+}
+
+
+.ultima-leitura { margin-top: 0.8rem; }
+
+.linha-ultima {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.25rem;
+}
+
+.texto-ultima { font-size: 1.1rem; }
+
+.linha-ultima button {
+  width: auto;
+  padding: 0.6rem 1rem;
+}
+
+.selo-pendencia {
+  margin-top: 0.8rem;
+  background: var(--verde-claro);
+  color: var(--verde);
+  font-size: 0.95rem;
+  text-align: left;
+}
+
+.caixa-qualidade {
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.grade-qualidade {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.item-qualidade {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+  background: #eef2ef;
+  color: var(--texto);
+  font-size: 0.85rem;
+  padding: 0.6rem;
+}
+
+.item-qualidade strong { font-size: 1.4rem; min-width: 1.6rem; }
+.item-qualidade.ativa { background: var(--verde); color: white; }
+
+/* ---------- Cadastro: lista de talhões e parcelas ---------- */
+
+.bloco-talhao {
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  margin-bottom: 0.7rem;
+}
+
+.linha-lista {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0;
+}
+
+.linha-lista.sub {
+  padding-left: 0.8rem;
+  border-top: 1px solid var(--borda);
+}
+
+.linha-lista .ajuda { display: block; margin: 0; }
+
+.alternador-analise { margin-bottom: 1rem; }
+/* ---------- Altura com +1,30 m somado na digitação ---------- */
+
+.altura-somada {
+  font-weight: 700;
+  color: #8a4b00;
+  background: #fff1d6;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+}
+
+.legenda-altura-somada {
+  font-size: 0.85rem;
+  color: #555;
 }

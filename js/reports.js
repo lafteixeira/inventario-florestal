@@ -1,5 +1,5 @@
 import * as db from './db.js';
-import { capParaDap, estatisticasParcela, estatisticasAgregadas } from './stats.js';
+import { capParaDap, estatisticasParcela, estatisticasAgregadas, areaBasalPorHa } from './stats.js';
 import { QUALIDADES } from './validation.js';
 
 // CSV padrão (separador ',', decimal '.', UTF-8 sem BOM) — lido por pd.read_csv()
@@ -49,7 +49,7 @@ export async function gerarCsvMedicoes(fazenda) {
   const linhas = [
     linhaCsv([
       'Talhão', 'Parcela', 'Linha', 'Árvore', 'CAP (cm)', 'DAP (cm)',
-      'Altura (m)', 'Qualidade', 'Falha', 'Registrado em',
+      'Altura (m)', 'Qualidade', 'Falha', 'Registrado em', 'Altura somou 1.30 m',
     ]),
   ];
   for (const { talhao, parcelas } of estrutura) {
@@ -67,6 +67,7 @@ export async function gerarCsvMedicoes(fazenda) {
             nomeQualidade(m.qualidade),
             m.falha ? 'Sim' : 'Não',
             m.timestamp || '',
+            m.altura != null ? (m.somou130 ? 'Sim' : 'Não') : '',
           ])
         );
       }
@@ -83,7 +84,8 @@ export async function gerarCsvEstatisticasParcelas(fazenda) {
       'Talhão', 'Parcela', 'Área (m2)', 'Status',
       'n só CAP', 'DAP médio só CAP (cm)',
       'n CAP+altura', 'DAP médio CAP+altura (cm)', 'CV% (CAP+altura)', 'Erro% (CAP+altura)',
-      'Altura média (m)', 'CV% altura', 'Erro% altura', 'Falhas',
+      'Altura média (m)', 'CV% altura', 'Erro% altura', 'Falhas', 'G (m2/ha)',
+      'Centro latitude', 'Centro longitude', 'Precisão do centro (m)',
     ]),
   ];
   for (const { talhao, parcelas } of estrutura) {
@@ -105,6 +107,10 @@ export async function gerarCsvEstatisticasParcelas(fazenda) {
           num(s.alturaMedia.cv, 1),
           num(s.alturaMedia.erro, 1),
           s.falhas,
+          num(areaBasalPorHa(medicoes, parcela.area), 2),
+          num(parcela.centro?.lat, 6),
+          num(parcela.centro?.lon, 6),
+          num(parcela.centro?.precisao, 0),
         ])
       );
     }

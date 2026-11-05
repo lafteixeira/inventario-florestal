@@ -37,14 +37,14 @@ export function validarCap(texto) {
     return {
       status: 'alerta',
       valor,
-      mensagem: `CAP incomum (${valor} cm). Confira o valor — pode faltar vírgula/ponto.`,
+      mensagem: `CAP incomum (${valor} cm): confira a vírgula.`,
     };
   }
   if (valor < CAP_MINIMO_INCLUSAO) {
     return {
       status: 'alerta',
       valor,
-      mensagem: `Árvore abaixo do DAP mínimo de inclusão (${DAP_MINIMO_INCLUSAO} cm). Ela será registrada, mas não entra no histograma de classes diamétricas.`,
+      mensagem: `DAP abaixo de ${DAP_MINIMO_INCLUSAO} cm: não entra no histograma.`,
     };
   }
   return { status: 'ok', valor, mensagem: '' };
@@ -59,7 +59,7 @@ export function validarAltura(texto, somar130) {
   if (Number.isNaN(valor) || valor < 0) {
     return { status: 'invalido', valor: null, mensagem: 'Altura inválida.' };
   }
-  if (somar130) valor += 1.3;
+  if (somar130) valor = Math.round((valor + 1.3) * 100) / 100;
 
   if (valor < ALTURA_BLOQUEIO[0] || valor > ALTURA_BLOQUEIO[1]) {
     return {
@@ -72,7 +72,7 @@ export function validarAltura(texto, somar130) {
     return {
       status: 'alerta',
       valor,
-      mensagem: `Altura incomum (${valor.toFixed(2)} m). Confirme o valor.`,
+      mensagem: `Altura incomum (${valor.toFixed(1)} m): confira.`,
     };
   }
   return { status: 'ok', valor, mensagem: '' };

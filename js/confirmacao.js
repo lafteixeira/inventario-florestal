@@ -1,7 +1,10 @@
 // Confirmação em modal próprio do app — o window.confirm() nativo é bloqueado
 // ou silenciosamente ignorado em muitos PWAs instalados (modo standalone no
 // Android), fazendo cliques em "Apagar" parecerem não fazer nada.
-export function confirmar(mensagem, { confirmarTexto = 'Apagar', cancelarTexto = 'Cancelar' } = {}) {
+export function confirmar(
+  mensagem,
+  { confirmarTexto = 'Apagar', cancelarTexto = 'Cancelar', perigo = true } = {}
+) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.className = 'overlay-confirmacao';
@@ -10,7 +13,7 @@ export function confirmar(mensagem, { confirmarTexto = 'Apagar', cancelarTexto =
         <p class="mensagem-confirmacao"></p>
         <div class="acoes">
           <button type="button" class="btn-cancelar-modal">${cancelarTexto}</button>
-          <button type="button" class="btn-confirmar-modal btn-perigo">${confirmarTexto}</button>
+          <button type="button" class="btn-confirmar-modal ${perigo ? 'btn-perigo' : ''}">${confirmarTexto}</button>
         </div>
       </div>
     `;

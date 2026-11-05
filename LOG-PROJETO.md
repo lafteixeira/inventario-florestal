@@ -1,7 +1,7 @@
 # Log do Projeto — Inventário Florestal (PWA)
 
 **Última atualização deste documento:** 13/09/2026
-**Versão atual do app:** 1.1.0 (ver `js/versao.js`)
+**Versão atual do app:** 1.4.2 na branch `feature/navegacao` (que contém a 1.2.0 de `feature/area-basal`); a `main` está em 1.1.0, tag `v1.1.0` — ver `js/versao.js`
 **Status:** em uso para testes de campo com equipe
 
 ---
@@ -84,29 +84,34 @@ inventario-florestal/
 - Importar backup completo (substitui todos os dados do aparelho), com confirmação.
 - Versão do app e botão "Verificar atualizações" (seção 9).
 
-### Coleta (foco: entrada de dados em campo, sem distrações)
-- Cadastro do talhão (nome, área, material genético, espaçamento, regime silvicultural, data de plantio, rotação, observações) — **seção recolhível**: some nome informado, mostra "Talhão N"; trava depois da primeira medição do talhão; começa expandida enquanto precisa ser preenchida, recolhida depois de travar (o operador pode reabrir a qualquer momento).
-- Configuração da parcela (forma retangular/circular, dimensões, área calculada) — mesma lógica de seção recolhível/trava; pré-preenchida a partir da parcela anterior.
-- Formulário de medição: linha, árvore (pré-preenchidos automaticamente), CAP, altura (+ toggle "somar 1,30 m automaticamente"), qualidade (12 códigos — seção 7).
-- Contador em tempo real: árvores sem altura / com altura / falhas.
-- Alerta de classes diamétricas com déficit de altura, **expresso em CAP** (o que o operador mede em campo, não DAP).
-- Botões: Desfazer última medição, Finalizar parcela (mantém forma/dimensões, numeração contínua), Concluir talhão (fecha parcelas pendentes, avança numeração de talhão).
+### Estrutura de abas (versão 1.4.0)
+Dentro de um projeto aberto há quatro abas, nesta ordem: **Cadastro | Coleta | Análise | Dados**. A navegação é só por toque na barra de abas (o deslize lateral foi testado e removido: atrapalhava mais do que ajudava no campo). O botão **Projetos** fica sempre no topo e, na tela Projetos, o botão **Voltar** retorna à última aba usada. Projeto novo abre em Cadastro; projeto com leituras na parcela em andamento abre direto na Coleta.
 
-### Parcelas (análise detalhada)
-- Seletor de parcela do talhão atual (inclui a em andamento e as já finalizadas).
-- Toggle **DAP / CAP** para a unidade de exibição das estatísticas (CV% e erro amostral não mudam — são invariantes de escala).
-- Estatísticas separadas: "Só CAP (sem altura)" e "CAP + altura" (n, média, desvio, CV%, erro amostral), mais "Altura média".
-- Histograma sobreposto (barra sólida "toda a parcela" vs. contorno "com altura"), na unidade selecionada.
-- Alerta de classes com déficit de altura (sempre em CAP) **+ lista exata das árvores elegíveis** (linha/árvore/CAP) para a próxima medição de altura — a lista some/recalcula conforme as alturas vão sendo preenchidas.
-- Tabela de medições da parcela com edição inline (qualquer campo, inclusive corrigir uma Falha) e exclusão por linha.
-- Apagar a parcela selecionada (cascata: medições junto), com confirmação.
+### Cadastro
+- **Opções do projeto**: usar número da linha, registrar qualidade do fuste, somar 1,30 m na altura digitada (as duas primeiras também são escolhidas na criação do projeto; desligar uma faz o campo sumir da Coleta). Mudar com medições já gravadas pede confirmação e vale só para as próximas leituras.
+- Cadastro do talhão (nome, área, material genético, espaçamento, regime silvicultural, data de plantio, rotação, observações); trava depois da primeira medição. Um talhão novo já nasce pré-preenchido com material, espaçamento, regime, plantio e rotação do anterior.
+- Configuração da parcela (forma, dimensões, área calculada), pré-preenchida a partir da parcela anterior; trava depois da primeira medição.
+- **Marcar centro da parcela (GPS)**: grava latitude, longitude, precisão (m) e hora na parcela atual (vai para o CSV de parcelas). O GPS só funciona em https.
+- Finalizar parcela (abre a próxima e vai para a Coleta) e Concluir talhão (abre um novo), ambos com confirmação.
+- Lista de talhões e parcelas com **Apagar** (cascata, com confirmação).
 
-### Talhões (consolidação)
-- Toggle DAP/CAP (mesma lógica da tela Parcelas).
-- Resumo geral da fazenda: nº de talhões, parcelas, árvores válidas, falhas, DAP/CAP médio, altura média, CV%, erro amostral.
-- Tabela de talhões (concluídos e o atual), cada linha expansível mostrando o detalhamento por parcela.
-- Apagar um talhão (cascata: parcelas + medições), com confirmação.
-- Exportação de relatórios em CSV (seção 10).
+### Coleta (só digitação, uso na vertical)
+- Layout compacto para caber na metade da tela que sobra com o teclado aberto (testado com 420 px de altura): topo reduzido (some o nome do app com projeto aberto), Linha (se habilitada) e Árvore com botões − / + e números grandes; trocar de linha propõe a próxima árvore daquela linha; **CAP e Altura lado a lado**, teclado numérico; Qualidade em botão que abre uma grade de letras (volta para N a cada árvore).
+- **Fluxo pelo OK do teclado, sem botão Adicionar:** OK no CAP confere e passa para a Altura; OK na Altura (com ou sem valor) registra a árvore e volta ao CAP. CAP = 0 registra Falha direto. CAP vazio ou inválido não avança.
+- Faixa com a **última leitura** e **Desfazer**; selo "Faltam alturas em N classe(s)" que leva à Análise.
+- Alertas curtos de uma linha, com confirmação por segundo OK: CAP/altura incomuns, DAP abaixo de 5 cm, árvore repetida na mesma linha/parcela.
+- Sem cadastro, contadores nem botões de finalizar/concluir (tudo isso fica no Cadastro). Todos os campos desligam as sugestões do teclado (autocomplete, autocorreção, corretor).
+
+### Análise
+- Alternador **Por parcela | Talhões e projeto**.
+- Por parcela: seletor de talhão e de parcela; toggle DAP/CAP; estatísticas "Só CAP" e "CAP + altura"; área basal (G); histograma sobreposto; déficit de altura (em CAP) com lista exata das árvores elegíveis; tabela de medições com edição inline e exclusão por linha.
+- Talhões e projeto: resumo geral, **suficiência amostral por área basal (nível do projeto)** e tabela de talhões expansível por parcela.
+
+### Dados
+- **Salvar**: backup JSON do projeto ou de todos os projetos.
+- **Exportar**: relatórios CSV (medições, estatísticas por parcela, estatísticas por talhão — seção 10).
+- **Importar**: restaura um backup (substitui os dados do aparelho), com confirmação.
+
 
 ## 7. Códigos de Qualidade da árvore
 
@@ -153,6 +158,8 @@ Implementado em `js/stats.js`:
 - **Estatísticas agregadas** (`estatisticasAgregadas`, usada em Talhões/geral): DAP combinado de todas as árvores válidas + altura média do subconjunto com altura.
 - **Sugestão de mais medições de altura** (`classesComDeficitDeAltura`): compara, por classe diamétrica, o % que a classe representa na parcela toda vs. o % que representa entre as árvores já com altura medida; diferença acima de um limiar (3 pontos percentuais, ajustável) sinaliza a classe como prioritária.
 - **Árvores elegíveis para medir altura** (`arvoresParaMedirAltura`): a partir do déficit por classe, filtra exatamente as árvores só-CAP que pertencem a uma classe em déficit — a lista exata de candidatas para a próxima medição, agrupada por classe na ordem de prioridade.
+- **Área basal** (`areaBasalArvore`, `areaBasalPorHa`): g = π/4·DAP² (m²); G (m²/ha) = Σg ÷ área da parcela × 10.000, só árvores com DAP ≥ 5 cm, falhas fora. Mostrada na tela Parcelas e na coluna `G (m2/ha)` do CSV de parcelas.
+- **Suficiência amostral** (`suficienciaAmostral`), **só no nível do projeto** (card na tela Talhões): unidade amostral = parcela concluída (a em andamento não entra); CV% de G entre parcelas; n = t²·CV²·N / (N·E² + t²·CV²), com t iterado por n−1 gl (95% de confiança) e N = área total dos talhões ÷ área média das parcelas. Se algum talhão não tiver área, usa a fórmula sem correção e avisa. Erro admissível padrão 10%, editável na tela. Quando a iteração oscila entre dois valores, adota o maior (conservador).
 - Toggle de exibição DAP/CAP nas telas Parcelas/Talhões: conversão por fator π aplicada só a médias/desvios — CV% e erro amostral são invariantes de escala (mesmos valores nas duas unidades).
 - Árvores marcadas como Falha são excluídas de todos os cálculos acima, mas contam em um contador separado.
 
@@ -160,7 +167,7 @@ Implementado em `js/stats.js`:
 
 - **Backup/restauração (JSON)** — `export.js`: backup completo (todos os projetos) ou de um projeto específico; usado para troca de aparelho ou recuperação. Importação substitui os dados do aparelho (com confirmação).
 - **Relatórios (CSV)** — `reports.js`, na tela Talhões:
-  - Medições (uma linha por árvore: talhão, parcela, linha, árvore, CAP, DAP, altura, qualidade, falha, timestamp).
+  - Medições (uma linha por árvore: talhão, parcela, linha, árvore, CAP, DAP, altura, qualidade, falha, timestamp, "Altura somou 1.30 m" Sim/Não). Linha 0 = projeto sem registro de linha.
   - Estatísticas por parcela.
   - Estatísticas por talhão (+ linha "GERAL" consolidando a fazenda).
   - Formato: separador `,`, decimal `.`, UTF-8 **sem BOM**, timestamp em ISO 8601 — lido por `pd.read_csv()` sem nenhum parâmetro extra (pensado para a próxima etapa do inventário em Python/pandas no Google Colab). Para abrir no Excel: Dados → Obter Dados → De Texto/CSV.
@@ -193,7 +200,12 @@ Implementado em `js/stats.js`:
 | 13/09/2026 | `5658f89` | Lista exata de árvores elegíveis para medição de altura (linha/árvore/CAP) na tela Parcelas, além do alerta por classe já existente. |
 | 13/09/2026 | `7eabfae` | Códigos de Qualidade atualizados para o padrão de 12 categorias do contratante (substituindo a lista provisória de 5 categorias inicial). |
 | 13/09/2026 | `a80628f` | Versão do app explícita na tela Projetos + atualização 100% manual do Service Worker (nunca aplica uma versão nova sozinho) — preparação para os testes de campo com a equipe. |
-| 13/09/2026 | *(pendente)* | Primeiro ajuste vindo do teste de campo: histograma de classes diamétricas passa a começar no DAP mínimo de inclusão (5 cm) em vez de zero, mantendo amplitude de 2 cm; alerta na tela Coleta quando o CAP digitado resulta em DAP abaixo desse mínimo; nota na tela Parcelas informando quantas árvores da parcela ficaram fora da distribuição por esse motivo. Versão 1.1.0. |
+| 13/09/2026 | `9347cd1` | Primeiro ajuste vindo do teste de campo: histograma de classes diamétricas passa a começar no DAP mínimo de inclusão (5 cm) em vez de zero, mantendo amplitude de 2 cm; alerta na tela Coleta quando o CAP digitado resulta em DAP abaixo desse mínimo; nota na tela Parcelas informando quantas árvores da parcela ficaram fora da distribuição por esse motivo. Versão 1.1.0 (tag `v1.1.0`). |
+| 05/11/2026 | *(branch `feature/area-basal`)* | Área basal por parcela (G, m²/ha) e suficiência amostral do projeto pela área basal (parcelas concluídas, t de Student, correção de população finita, erro admissível editável); coluna G no CSV de parcelas. Versão 1.2.0. Planejamento do piloto em `PLANO-PILOTO.md`. |
+| 05/11/2026 | *(branch `feature/navegacao`)* | Navegação: deslize lateral entre as abas (ignorado em campos de texto, teclado aberto, leitura digitada e ainda não adicionada, tabelas com rolagem lateral, histograma, modal e borda da tela); botão **Projetos** sempre visível no topo, e na tela Projetos um botão grande **Voltar** que retorna à última aba usada (com o projeto marcado "aberto agora"); apagar o projeto aberto limpa o Voltar. Versão 1.3.0. (O deslize lateral foi removido na 1.4.0 depois do teste no celular.) |
+| 05/11/2026 | *(branch `feature/navegacao`)* | **Reestruturação em quatro abas (Cadastro, Coleta, Análise, Dados), versão 1.4.0**, a partir do primeiro teste de campo no celular: Coleta enxuta (campos grandes, steppers, Enter no CAP adiciona, qualidade em grade de letras, Adicionar fixo acima do teclado, última leitura + Desfazer, alertas curtos, aviso de árvore repetida); Cadastro com opções do projeto (linha, qualidade, somar 1,30 m), talhão novo pré-preenchido, centro da parcela por GPS, finalizar/concluir/apagar; Análise (parcela e projeto) com seletor de talhão; aba Dados (salvar, exportar, importar); sugestões do teclado desligadas; só toque nas abas (sem deslize). Não inclui ainda perfis coordenador/coletor, pacotes de campo, UUID nas medições, licença do app nem mapa. |
+| 05/11/2026 | *(branch `feature/navegacao`)* | **1.4.2 — rastreabilidade na gravação**: projeto sem linha grava **linha = 0** ("linha não medida", em vez de repetir 1, 1, 1); projeto sem qualidade grava Normal (código 0); cada medição passa a ter o campo `somou130` (a altura gravada já inclui +1,30 m somado na digitação, arredondada a 2 casas); na tabela de medições a altura somada aparece em negrito/âmbar com "+" e legenda, e o CSV de medições ganhou a coluna `Altura somou 1.30 m` (Sim/Não). Corrigir a altura à mão na edição desliga a marca. |
+| 05/11/2026 | *(branch `feature/navegacao`)* | **1.4.1 — Coleta compacta para o teclado aberto**, após o segundo teste no celular: CAP e Altura lado a lado; steppers de Linha/Árvore com números legíveis; topo reduzido; botão Adicionar removido; OK no CAP vai para a Altura e OK na Altura registra a árvore e volta ao CAP. |
 
 ## 14. Limitações conhecidas / próximos passos
 

@@ -1,6 +1,8 @@
 import * as db from '../db.js';
 import { validarCap, validarAltura, QUALIDADES, QUALIDADE_FALHA } from '../validation.js';
-import { medicoesValidasComDap, classesComDeficitDeAltura } from '../stats.js';
+import { medicoesValidasComDap, classesComDeficitDeAltura, rotuloArvore } from '../stats.js';
+import { garantirTalhaoEParcela } from '../sessao.js';
+import { escolherQualidade } from '../seletorQualidade.js';
 
 const LIMIAR_DEFICIT = 3;
 
@@ -8,41 +10,24 @@ function rotuloTalhao(talhao) {
   return talhao.nome || `Talhão ${talhao.numero}`;
 }
 
-export async function initColeta(container, fazenda) {
+// Tela só de digitação: o cadastro (talhão, parcela, opções) fica na aba Cadastro.
+export async function initColeta(container, fazenda, { irPara } = {}) {
   const ctx = {
     container,
     fazenda,
+    opcoes: db.opcoesDoProjeto(fazenda),
+    irPara,
     talhao: null,
     parcela: null,
     medicoes: [],
-    medicoesTalhao: [],
+    qualidade: 0,
     pendente: null,
-    talhaoExpandido: true,
-    parcelaExpandido: true,
   };
-  await carregarOuCriarTalhaoEParcela(ctx);
-  ctx.talhaoExpandido = ctx.medicoesTalhao.length === 0;
-  ctx.parcelaExpandido = ctx.medicoes.length === 0;
+  const { talhao, parcela } = await garantirTalhaoEParcela(fazenda);
+  ctx.talhao = talhao;
+  ctx.parcela = parcela;
+  ctx.medicoes = await db.getMedicoesDaParcela(parcela.id);
   render(ctx);
-}
-
-async function carregarOuCriarTalhaoEParcela(ctx) {
-  ctx.talhao = await db.getTalhaoEmAndamento(ctx.fazenda.id);
-  if (!ctx.talhao) {
-    ctx.talhao = await db.criarTalhao(ctx.fazenda.id);
-  }
-
-  ctx.parcela = await db.getParcelaEmAndamento(ctx.talhao.id);
-  if (!ctx.parcela) {
-    const ultima = await db.getUltimaParcelaCriada(ctx.fazenda.id);
-    const configPrefill = ultima
-      ? { forma: ultima.forma, comprimento: ultima.comprimento, largura: ultima.largura, raio: ultima.raio }
-      : { forma: 'retangular', comprimento: null, largura: null, raio: null };
-    ctx.parcela = await db.criarParcela(ctx.talhao.id, configPrefill);
-  }
-
-  ctx.medicoes = await db.getMedicoesDaParcela(ctx.parcela.id);
-  ctx.medicoesTalhao = await db.getMedicoesDoTalhao(ctx.talhao.id);
 }
 
 function proximaLinhaEArvore(ctx) {
@@ -51,236 +36,199 @@ function proximaLinhaEArvore(ctx) {
   return { linha: ultima.linha, arvore: ultima.arvore + 1 };
 }
 
+function proximaArvoreDaLinha(ctx, linha) {
+  const daLinha = ctx.medicoes.filter((m) => m.linha === linha);
+  return daLinha.length === 0 ? 1 : Math.max(...daLinha.map((m) => m.arvore)) + 1;
+}
+
+function nomeQualidade(id) {
+  return QUALIDADES.find((q) => q.id === id) ?? QUALIDADES[0];
+}
+
+function campoNumerico(id, rotulo, valor) {
+  return `
+    <div class="campo-stepper">
+      <span class="rotulo-campo">${rotulo}</span>
+      <div class="stepper">
+        <button type="button" class="passo" data-alvo="${id}" data-passo="-1" aria-label="${rotulo} anterior">−</button>
+        <input id="${id}" type="text" inputmode="numeric" value="${valor}">
+        <button type="button" class="passo" data-alvo="${id}" data-passo="1" aria-label="${rotulo} seguinte">+</button>
+      </div>
+    </div>
+  `;
+}
+
 function render(ctx) {
-  const { forma, comprimento, largura, raio, area } = ctx.parcela;
-  const configTravada = ctx.medicoes.length > 0;
-  const talhaoTravado = ctx.medicoesTalhao.length > 0;
+  const { usarLinha, usarQualidade, somar130 } = ctx.opcoes;
   const { linha, arvore } = proximaLinhaEArvore(ctx);
-  const t = ctx.talhao;
+  const semArea = !ctx.parcela.area || ctx.parcela.area <= 0;
+  const q = nomeQualidade(ctx.qualidade);
 
   ctx.container.innerHTML = `
-    <section class="painel">
-      <h2>${rotuloTalhao(ctx.talhao)} · Parcela ${ctx.parcela.numero}</h2>
-
-      <div class="cartao-secao">
-        <button type="button" class="cabecalho-secao" id="toggle-cadastro-talhao">
-          <span>Cadastro do talhão${talhaoTravado ? ' (travado)' : ''}</span>
-          <span class="seta">${ctx.talhaoExpandido ? '▾' : '▸'}</span>
-        </button>
-        <fieldset id="config-talhao" ${talhaoTravado ? 'disabled' : ''} ${ctx.talhaoExpandido ? '' : 'hidden'}>
-          <legend class="oculto-visual">Cadastro do talhão</legend>
-          <label>Nome <input id="t-nome" type="text" placeholder="Talhão ${t.numero}" value="${t.nome ?? ''}"></label>
-          <div class="linha-campos">
-            <label>Área (ha) <input id="t-area" type="number" step="0.01" min="0" value="${t.area ?? ''}"></label>
-            <label>Rotação <input id="t-rotacao" type="text" value="${t.rotacao ?? ''}"></label>
-          </div>
-          <label>Material genético <input id="t-material" type="text" placeholder="ex: clone X" value="${t.materialGenetico ?? ''}"></label>
-          <div class="linha-campos">
-            <label>Espaçamento <input id="t-espacamento" type="text" placeholder="ex: 3x2 m" value="${t.espacamento ?? ''}"></label>
-            <label>Data de plantio <input id="t-data-plantio" type="date" value="${t.dataPlantio ?? ''}"></label>
-          </div>
-          <label>Regime silvicultural <input id="t-regime" type="text" placeholder="ex: alto fuste, talhadia" value="${t.regimeSilvicultural ?? ''}"></label>
-          <label>Observações <textarea id="t-observacoes" rows="2">${t.observacoes ?? ''}</textarea></label>
-        </fieldset>
+    <section class="painel painel-coleta">
+      <div class="cabecalho-coleta">
+        <strong>${rotuloTalhao(ctx.talhao)} · P${ctx.parcela.numero}</strong>
+        <span id="contador-arvores"></span>
       </div>
 
-      <div class="cartao-secao">
-        <button type="button" class="cabecalho-secao" id="toggle-config-parcela">
-          <span>Configuração da parcela${configTravada ? ' (travada)' : ''}</span>
-          <span class="seta">${ctx.parcelaExpandido ? '▾' : '▸'}</span>
-        </button>
-        <fieldset id="config-parcela" ${configTravada ? 'disabled' : ''} ${ctx.parcelaExpandido ? '' : 'hidden'}>
-          <legend class="oculto-visual">Configuração da parcela</legend>
-          <label>Forma
-            <select id="forma">
-              <option value="retangular" ${forma === 'retangular' ? 'selected' : ''}>Retangular</option>
-              <option value="circular" ${forma === 'circular' ? 'selected' : ''}>Circular</option>
-            </select>
+      ${
+        semArea
+          ? `<div class="aviso-area">Falta o tamanho da parcela.
+              <button type="button" id="btn-ir-cadastro">Preencher no Cadastro</button></div>`
+          : ''
+      }
+
+      <form id="form-medicao" autocomplete="off">
+        <div class="linha-campos">
+          ${usarLinha ? campoNumerico('linha', 'Linha', linha) : ''}
+          ${campoNumerico('arvore', 'Árvore', arvore)}
+        </div>
+
+        <div class="linha-campos linha-cap-altura">
+          <label class="campo-grande-rotulo">CAP (cm)
+            <input id="cap" class="campo-grande" type="text" inputmode="decimal" enterkeyhint="next">
           </label>
-          <div id="campos-retangular" class="linha-campos" ${forma !== 'retangular' ? 'hidden' : ''}>
-            <label>Comprimento (m) <input id="comprimento" type="number" step="0.01" min="0" value="${comprimento ?? ''}"></label>
-            <label>Largura (m) <input id="largura" type="number" step="0.01" min="0" value="${largura ?? ''}"></label>
-          </div>
-          <div id="campos-circular" class="linha-campos" ${forma !== 'circular' ? 'hidden' : ''}>
-            <label>Raio (m) <input id="raio" type="number" step="0.01" min="0" value="${raio ?? ''}"></label>
-          </div>
-          <p>Área: <strong id="area-calculada">${area ? area.toFixed(1) + ' m²' : '—'}</strong></p>
-        </fieldset>
-      </div>
+          <label class="campo-grande-rotulo">Altura (m)${somar130 ? ' +1,30' : ''}
+            <input id="altura" class="campo-grande" type="text" inputmode="decimal" enterkeyhint="done">
+          </label>
+        </div>
 
-      <form id="form-medicao">
-        <legend>Medição</legend>
-        <div class="linha-campos">
-          <label>Linha <input id="linha" type="number" min="1" step="1" value="${linha}"></label>
-          <label>Árvore <input id="arvore" type="number" min="1" step="1" value="${arvore}"></label>
-        </div>
-        <div class="linha-campos">
-          <label>CAP (cm) <input id="cap" type="text" inputmode="decimal" placeholder="ex: 32,5"></label>
-          <label>Altura (m) <input id="altura" type="text" inputmode="decimal" placeholder="opcional"></label>
-        </div>
-        <label class="toggle">
-          <input id="toggle130" type="checkbox">
-          Somar 1,30 m automaticamente (leitura à altura do peito)
-        </label>
-        <label>Qualidade
-          <select id="qualidade">
-            ${QUALIDADES.filter((q) => q.id !== QUALIDADE_FALHA)
-              .map((q) => `<option value="${q.id}">${q.letra} — ${q.nome}</option>`)
-              .join('')}
-          </select>
-        </label>
+        ${
+          usarQualidade
+            ? `<button type="button" id="btn-qualidade" class="btn-qualidade btn-secundario">
+                Qualidade: <strong>${q.letra}</strong> — ${q.nome} ▾
+              </button>`
+            : ''
+        }
+
         <p id="msg-validacao" class="msg" hidden></p>
-        <button type="submit" id="btn-adicionar">Adicionar medição</button>
       </form>
 
-      <section id="painel-resultados"></section>
-
-      <div class="acoes">
-        <button id="btn-desfazer" type="button">Desfazer última medição</button>
-        <button id="btn-finalizar-parcela" type="button">Finalizar parcela</button>
-        <button id="btn-concluir-talhao" type="button">Concluir talhão</button>
-      </div>
+      <div id="ultima-leitura" class="ultima-leitura"></div>
+      <div id="selo-alturas"></div>
     </section>
   `;
 
-  atualizarPainelResultados(ctx);
+  atualizarResumo(ctx);
   ligarEventos(ctx);
 }
 
-function atualizarPainelResultados(ctx) {
-  const painel = ctx.container.querySelector('#painel-resultados');
-  const semAltura = ctx.medicoes.filter((m) => !m.falha && m.altura == null).length;
-  const comAltura = ctx.medicoes.filter((m) => !m.falha && m.altura != null).length;
-  const falhas = ctx.medicoes.filter((m) => m.falha).length;
+function atualizarResumo(ctx) {
+  const $ = (sel) => ctx.container.querySelector(sel);
+  $('#contador-arvores').textContent = `${ctx.medicoes.length} árv.`;
 
-  const validas = medicoesValidasComDap(ctx.medicoes);
-  const deficit = classesComDeficitDeAltura(validas, LIMIAR_DEFICIT);
+  const ultima = ctx.medicoes.length
+    ? ctx.medicoes.reduce((a, b) => (a.id > b.id ? a : b))
+    : null;
+  const blocoUltima = $('#ultima-leitura');
+  if (ultima) {
+    const altura = ultima.altura != null
+      ? ` · H ${ultima.altura.toFixed(1)}${ultima.somou130 ? ' (+1,30)' : ''}`
+      : '';
+    const texto = ultima.falha
+      ? `${rotuloArvore(ultima)} · Falha`
+      : `${rotuloArvore(ultima)} · CAP ${ultima.cap}${altura} · ${nomeQualidade(ultima.qualidade).letra}`;
+    blocoUltima.innerHTML = '<span class="rotulo-campo">Última leitura</span><div class="linha-ultima"><strong class="texto-ultima"></strong><button type="button" id="btn-desfazer" class="btn-secundario">Desfazer</button></div>';
+    blocoUltima.querySelector('.texto-ultima').textContent = texto;
+    blocoUltima.querySelector('#btn-desfazer').addEventListener('click', () => desfazer(ctx));
+  } else {
+    blocoUltima.innerHTML = '<span class="rotulo-campo">Nenhuma leitura ainda nesta parcela.</span>';
+  }
 
-  painel.innerHTML = `
-    <p class="contador">
-      Sem altura: <strong>${semAltura}</strong> ·
-      Com altura: <strong>${comAltura}</strong> ·
-      Falhas: <strong>${falhas}</strong>
-    </p>
-    ${
-      deficit.length > 0
-        ? `<div class="alerta-deficit">
-            <strong>Priorize altura nas classes de CAP:</strong>
-            ${deficit.map((c) => `<span class="chip">${c.labelCap} cm (${c.diferenca.toFixed(1)} pp)</span>`).join(' ')}
-          </div>`
-        : ''
-    }
-  `;
+  const deficit = classesComDeficitDeAltura(medicoesValidasComDap(ctx.medicoes), LIMIAR_DEFICIT);
+  const selo = $('#selo-alturas');
+  if (deficit.length > 0) {
+    selo.innerHTML = `<button type="button" id="btn-ver-alturas" class="selo-pendencia">Faltam alturas em ${deficit.length} classe(s) — ver na Análise ›</button>`;
+    selo.querySelector('#btn-ver-alturas').addEventListener('click', () => ctx.irPara?.('analise'));
+  } else {
+    selo.innerHTML = '';
+  }
+}
+
+async function desfazer(ctx) {
+  const removida = await db.desfazerUltimaMedicao(ctx.parcela.id);
+  if (!removida) return;
+  ctx.medicoes = await db.getMedicoesDaParcela(ctx.parcela.id);
+  ctx.pendente = null;
+  const { linha, arvore } = proximaLinhaEArvore(ctx);
+  definirCampos(ctx, { linha, arvore });
+  atualizarResumo(ctx);
+}
+
+function definirCampos(ctx, { linha, arvore }) {
+  const $ = (sel) => ctx.container.querySelector(sel);
+  if ($('#linha') && linha != null) $('#linha').value = linha;
+  if (arvore != null) $('#arvore').value = arvore;
 }
 
 function ligarEventos(ctx) {
   const $ = (sel) => ctx.container.querySelector(sel);
 
-  $('#toggle-cadastro-talhao').addEventListener('click', () => {
-    ctx.talhaoExpandido = !ctx.talhaoExpandido;
-    render(ctx);
+  $('#btn-ir-cadastro')?.addEventListener('click', () => ctx.irPara?.('cadastro'));
+
+  // Qualquer edição cancela uma confirmação pendente (alerta já mostrado).
+  ['#linha', '#arvore', '#cap', '#altura'].forEach((sel) => {
+    $(sel)?.addEventListener('input', () => {
+      ctx.pendente = null;
+    });
   });
 
-  $('#toggle-config-parcela').addEventListener('click', () => {
-    ctx.parcelaExpandido = !ctx.parcelaExpandido;
-    render(ctx);
+  ctx.container.querySelectorAll('.passo').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const alvo = btn.dataset.alvo;
+      const atual = Number($(`#${alvo}`).value) || 1;
+      const novo = Math.max(1, atual + Number(btn.dataset.passo));
+      $(`#${alvo}`).value = novo;
+      ctx.pendente = null;
+      if (alvo === 'linha') {
+        $('#arvore').value = proximaArvoreDaLinha(ctx, novo);
+      }
+    });
   });
 
-  ['#t-nome', '#t-area', '#t-rotacao', '#t-material', '#t-espacamento', '#t-data-plantio', '#t-regime', '#t-observacoes'].forEach((sel) => {
-    $(sel)?.addEventListener('change', () => salvarConfigTalhao(ctx));
-  });
-
-  $('#forma').addEventListener('change', async (e) => {
-    const forma = e.target.value;
-    $('#campos-retangular').hidden = forma !== 'retangular';
-    $('#campos-circular').hidden = forma !== 'circular';
-    await salvarConfig(ctx);
-  });
-
-  ['#comprimento', '#largura', '#raio'].forEach((sel) => {
-    $(sel)?.addEventListener('change', () => salvarConfig(ctx));
-  });
-
-  // Editar CAP/altura cancela qualquer confirmação pendente (seção 5 do log).
-  $('#cap').addEventListener('input', () => {
+  $('#btn-qualidade')?.addEventListener('click', async () => {
+    const escolhida = await escolherQualidade(ctx.qualidade);
+    if (escolhida == null) return;
+    ctx.qualidade = escolhida;
+    const q = nomeQualidade(escolhida);
+    $('#btn-qualidade').innerHTML = `Qualidade: <strong>${q.letra}</strong> — ${q.nome} ▾`;
     ctx.pendente = null;
   });
-  $('#altura').addEventListener('input', () => {
-    ctx.pendente = null;
-  });
 
-  $('#form-medicao').addEventListener('submit', (e) => {
+  $('#form-medicao').addEventListener('submit', (e) => e.preventDefault());
+
+  // OK/Enter no CAP: confere e passa para a altura. OK/Enter na altura (com ou
+  // sem valor): registra a árvore e volta para o CAP.
+  $('#cap').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    avancarParaAltura(ctx);
+  });
+  $('#altura').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
     e.preventDefault();
     tentarAdicionarMedicao(ctx);
   });
-
-  $('#btn-desfazer').addEventListener('click', async () => {
-    const removida = await db.desfazerUltimaMedicao(ctx.parcela.id);
-    if (removida) {
-      ctx.medicoes = await db.getMedicoesDaParcela(ctx.parcela.id);
-      ctx.medicoesTalhao = await db.getMedicoesDoTalhao(ctx.talhao.id);
-      render(ctx);
-    }
-  });
-
-  $('#btn-finalizar-parcela').addEventListener('click', async () => {
-    await db.finalizarParcela(ctx.parcela.id);
-    const ultima = ctx.parcela;
-    ctx.parcela = await db.criarParcela(ctx.talhao.id, {
-      forma: ultima.forma,
-      comprimento: ultima.comprimento,
-      largura: ultima.largura,
-      raio: ultima.raio,
-    });
-    ctx.medicoes = [];
-    ctx.pendente = null;
-    ctx.parcelaExpandido = true;
-    render(ctx);
-  });
-
-  $('#btn-concluir-talhao').addEventListener('click', async () => {
-    await db.finalizarParcela(ctx.parcela.id);
-    await db.concluirTalhao(ctx.talhao.id);
-    const ultimaParcela = ctx.parcela;
-    ctx.talhao = await db.criarTalhao(ctx.fazenda.id);
-    ctx.parcela = await db.criarParcela(ctx.talhao.id, {
-      forma: ultimaParcela.forma,
-      comprimento: ultimaParcela.comprimento,
-      largura: ultimaParcela.largura,
-      raio: ultimaParcela.raio,
-    });
-    ctx.medicoes = [];
-    ctx.medicoesTalhao = [];
-    ctx.pendente = null;
-    ctx.talhaoExpandido = true;
-    ctx.parcelaExpandido = true;
-    render(ctx);
-  });
 }
 
-async function salvarConfigTalhao(ctx) {
+function avancarParaAltura(ctx) {
   const $ = (sel) => ctx.container.querySelector(sel);
-  ctx.talhao = await db.atualizarCadastroTalhao(ctx.talhao.id, {
-    nome: $('#t-nome').value.trim(),
-    area: Number($('#t-area').value) || null,
-    materialGenetico: $('#t-material').value.trim(),
-    espacamento: $('#t-espacamento').value.trim(),
-    regimeSilvicultural: $('#t-regime').value.trim(),
-    dataPlantio: $('#t-data-plantio').value || null,
-    rotacao: $('#t-rotacao').value.trim(),
-    observacoes: $('#t-observacoes').value.trim(),
-  });
-  ctx.container.querySelector('h2').textContent = `${rotuloTalhao(ctx.talhao)} · Parcela ${ctx.parcela.numero}`;
-}
+  const msg = $('#msg-validacao');
+  const resultado = validarCap($('#cap').value);
 
-async function salvarConfig(ctx) {
-  const $ = (sel) => ctx.container.querySelector(sel);
-  const forma = $('#forma').value;
-  const comprimento = forma === 'retangular' ? Number($('#comprimento').value) || null : null;
-  const largura = forma === 'retangular' ? Number($('#largura').value) || null : null;
-  const raio = forma === 'circular' ? Number($('#raio').value) || null : null;
-  ctx.parcela = await db.atualizarConfigParcela(ctx.parcela.id, { forma, comprimento, largura, raio });
-  $('#area-calculada').textContent = ctx.parcela.area ? ctx.parcela.area.toFixed(1) + ' m²' : '—';
+  if (resultado.status === 'invalido' || resultado.status === 'bloqueado') {
+    msg.textContent = resultado.mensagem;
+    msg.hidden = false;
+    return;
+  }
+  // CAP = 0 é falha de plantio: não há altura a medir, registra direto.
+  if (resultado.status === 'falha') {
+    tentarAdicionarMedicao(ctx);
+    return;
+  }
+  msg.textContent = resultado.mensagem;
+  msg.hidden = resultado.status !== 'alerta';
+  $('#altura').focus();
 }
 
 async function tentarAdicionarMedicao(ctx) {
@@ -292,54 +240,52 @@ async function tentarAdicionarMedicao(ctx) {
   };
 
   if (!ctx.parcela.area || ctx.parcela.area <= 0) {
-    mostrarMsg('Preencha as dimensões da parcela antes de adicionar medições.');
+    mostrarMsg('Falta o tamanho da parcela (aba Cadastro).');
     return;
   }
 
-  const linha = Number($('#linha').value);
+  // Projeto sem linha: grava 0, que quer dizer "linha não medida" (e não repete 1, 1, 1...).
+  const linha = ctx.opcoes.usarLinha ? Number($('#linha').value) : 0;
   const arvore = Number($('#arvore').value);
+  const linhaInvalida = ctx.opcoes.usarLinha && (!Number.isInteger(linha) || linha < 1);
+  if (linhaInvalida || !Number.isInteger(arvore) || arvore < 1) {
+    mostrarMsg('Linha e árvore devem ser números inteiros a partir de 1.');
+    return;
+  }
+
   const capTexto = $('#cap').value;
   const alturaTexto = $('#altura').value;
-  const toggle130 = $('#toggle130').checked;
-  const qualidadeSelecionada = Number($('#qualidade').value);
+  const qualidadeSelecionada = ctx.opcoes.usarQualidade ? ctx.qualidade : 0;
 
   const resultadoCap = validarCap(capTexto);
-  if (resultadoCap.status === 'invalido') {
-    mostrarMsg(resultadoCap.mensagem);
-    return;
-  }
-  if (resultadoCap.status === 'bloqueado') {
+  if (resultadoCap.status === 'invalido' || resultadoCap.status === 'bloqueado') {
     ctx.pendente = null;
     mostrarMsg(resultadoCap.mensagem);
     return;
   }
 
-  const falha = resultadoCap.status === 'falha' || qualidadeSelecionada === QUALIDADE_FALHA;
+  const falha = resultadoCap.status === 'falha';
 
   let resultadoAltura = { status: 'ok', valor: null, mensagem: '' };
   if (!falha) {
-    resultadoAltura = validarAltura(alturaTexto, toggle130);
-    if (resultadoAltura.status === 'invalido') {
-      mostrarMsg(resultadoAltura.mensagem);
-      return;
-    }
-    if (resultadoAltura.status === 'bloqueado') {
+    resultadoAltura = validarAltura(alturaTexto, ctx.opcoes.somar130);
+    if (resultadoAltura.status === 'invalido' || resultadoAltura.status === 'bloqueado') {
       ctx.pendente = null;
       mostrarMsg(resultadoAltura.mensagem);
       return;
     }
   }
 
-  const precisaConfirmar = resultadoCap.status === 'alerta' || resultadoAltura.status === 'alerta';
-  const jaConfirmado =
-    ctx.pendente && ctx.pendente.capTexto === capTexto && ctx.pendente.alturaTexto === alturaTexto;
+  const repetida = ctx.medicoes.some((m) => m.linha === linha && m.arvore === arvore);
+  const avisos = [
+    resultadoCap.status === 'alerta' ? resultadoCap.mensagem : '',
+    resultadoAltura.status === 'alerta' ? resultadoAltura.mensagem : '',
+    repetida ? `${rotuloArvore({ linha, arvore })} já existe nesta parcela.` : '',
+  ].filter(Boolean);
 
-  if (precisaConfirmar && !jaConfirmado) {
-    ctx.pendente = { capTexto, alturaTexto };
-    mostrarMsg(
-      [resultadoCap.mensagem, resultadoAltura.mensagem].filter(Boolean).join(' ') +
-        ' Clique em "Adicionar medição" novamente para confirmar.'
-    );
+  if (avisos.length > 0 && !ctx.pendente) {
+    ctx.pendente = true;
+    mostrarMsg(`${avisos.join(' ')} Aperte OK de novo para confirmar.`);
     return;
   }
 
@@ -349,21 +295,26 @@ async function tentarAdicionarMedicao(ctx) {
     arvore,
     cap: falha ? 0 : resultadoCap.valor,
     altura: falha ? null : resultadoAltura.valor,
+    somou130: !falha && resultadoAltura.valor != null && ctx.opcoes.somar130,
     qualidade: falha ? QUALIDADE_FALHA : qualidadeSelecionada,
     falha,
   });
 
   ctx.medicoes = await db.getMedicoesDaParcela(ctx.parcela.id);
-  ctx.medicoesTalhao = await db.getMedicoesDoTalhao(ctx.talhao.id);
   ctx.pendente = null;
+  ctx.qualidade = 0;
   msg.hidden = true;
 
   const proxima = proximaLinhaEArvore(ctx);
-  $('#linha').value = proxima.linha;
-  $('#arvore').value = proxima.arvore;
+  definirCampos(ctx, proxima);
   $('#cap').value = '';
   $('#altura').value = '';
+  const botaoQualidade = $('#btn-qualidade');
+  if (botaoQualidade) {
+    const q = nomeQualidade(0);
+    botaoQualidade.innerHTML = `Qualidade: <strong>${q.letra}</strong> — ${q.nome} ▾`;
+  }
   $('#cap').focus();
 
-  atualizarPainelResultados(ctx);
+  atualizarResumo(ctx);
 }
