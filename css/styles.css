@@ -48,6 +48,47 @@ body {
   padding: 0.4rem 0.7rem;
 }
 
+.btn-voltar-projeto {
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.9rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.cartao-projeto.aberto {
+  border-color: var(--verde);
+  border-width: 2px;
+}
+
+.selo-aberto {
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--verde-claro);
+  color: var(--verde);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  vertical-align: middle;
+}
+
+@keyframes entra-da-direita {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes entra-da-esquerda {
+  from { transform: translateX(-24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+#app.entra-da-direita { animation: entra-da-direita 0.18s ease-out; }
+#app.entra-da-esquerda { animation: entra-da-esquerda 0.18s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  #app.entra-da-direita,
+  #app.entra-da-esquerda { animation: none; }
+}
+
 .nav-telas {
   display: flex;
   gap: 0.4rem;

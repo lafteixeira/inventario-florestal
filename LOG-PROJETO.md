@@ -1,7 +1,7 @@
 # Log do Projeto — Inventário Florestal (PWA)
 
 **Última atualização deste documento:** 13/09/2026
-**Versão atual do app:** 1.2.0 na branch `feature/area-basal` (a `main` está em 1.1.0, tag `v1.1.0`) — ver `js/versao.js`
+**Versão atual do app:** 1.3.0 na branch `feature/navegacao` (que contém a 1.2.0 de `feature/area-basal`); a `main` está em 1.1.0, tag `v1.1.0` — ver `js/versao.js`
 **Status:** em uso para testes de campo com equipe
 
 ---
@@ -197,6 +197,7 @@ Implementado em `js/stats.js`:
 | 13/09/2026 | `a80628f` | Versão do app explícita na tela Projetos + atualização 100% manual do Service Worker (nunca aplica uma versão nova sozinho) — preparação para os testes de campo com a equipe. |
 | 13/09/2026 | `9347cd1` | Primeiro ajuste vindo do teste de campo: histograma de classes diamétricas passa a começar no DAP mínimo de inclusão (5 cm) em vez de zero, mantendo amplitude de 2 cm; alerta na tela Coleta quando o CAP digitado resulta em DAP abaixo desse mínimo; nota na tela Parcelas informando quantas árvores da parcela ficaram fora da distribuição por esse motivo. Versão 1.1.0 (tag `v1.1.0`). |
 | 05/11/2026 | *(branch `feature/area-basal`)* | Área basal por parcela (G, m²/ha) e suficiência amostral do projeto pela área basal (parcelas concluídas, t de Student, correção de população finita, erro admissível editável); coluna G no CSV de parcelas. Versão 1.2.0. Planejamento do piloto em `PLANO-PILOTO.md`. |
+| 05/11/2026 | *(branch `feature/navegacao`)* | Navegação: deslize lateral entre as abas (ignorado em campos de texto, teclado aberto, leitura digitada e ainda não adicionada, tabelas com rolagem lateral, histograma, modal e borda da tela); botão **Projetos** sempre visível no topo, e na tela Projetos um botão grande **Voltar** que retorna à última aba usada (com o projeto marcado "aberto agora"); apagar o projeto aberto limpa o Voltar. Versão 1.3.0. A reestruturação completa em Cadastro/Coleta/Análise/Dados do `PLANO-PILOTO.md` ainda **não** foi feita. |
 
 ## 14. Limitações conhecidas / próximos passos
 

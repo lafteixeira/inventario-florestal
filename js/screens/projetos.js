@@ -4,10 +4,12 @@ import { confirmar } from '../confirmacao.js';
 import { VERSAO } from '../versao.js';
 import { verificarAtualizacoes, aplicarAtualizacao, temAtualizacaoDisponivel } from '../atualizacao.js';
 
-export async function initProjetos(container, { onAbrirProjeto }) {
+export async function initProjetos(container, { onAbrirProjeto, voltar = null, onProjetoApagado }) {
   const ctx = {
     container,
     onAbrirProjeto,
+    voltar,
+    onProjetoApagado,
     mostrandoForm: false,
     statusAtualizacao: temAtualizacaoDisponivel() ? 'disponivel' : null,
   };
@@ -16,10 +18,15 @@ export async function initProjetos(container, { onAbrirProjeto }) {
 
 async function render(ctx) {
   const fazendas = await db.listarFazendas();
-  const cartoes = await Promise.all(fazendas.map(cartaoProjeto));
+  const cartoes = await Promise.all(fazendas.map((f) => cartaoProjeto(f, f.id === ctx.voltar?.projetoId)));
 
   ctx.container.innerHTML = `
     <section class="painel">
+      ${
+        ctx.voltar
+          ? '<button type="button" id="btn-voltar-projeto" class="btn-voltar-projeto"></button>'
+          : ''
+      }
       <h2>Projetos</h2>
 
       <div class="acoes">
@@ -81,12 +88,12 @@ function renderStatusAtualizacao(ctx) {
   `;
 }
 
-async function cartaoProjeto(fazenda) {
+async function cartaoProjeto(fazenda, aberto) {
   const talhoes = await db.getTalhoesDaFazenda(fazenda.id);
   const localizacao = [fazenda.municipio, fazenda.uf].filter(Boolean).join(' - ');
   return `
-    <div class="cartao-projeto" data-id="${fazenda.id}">
-      <h3>${fazenda.nome}</h3>
+    <div class="cartao-projeto ${aberto ? 'aberto' : ''}" data-id="${fazenda.id}">
+      <h3>${fazenda.nome}${aberto ? ' <span class="selo-aberto">aberto agora</span>' : ''}</h3>
       ${localizacao ? `<p class="detalhes-projeto">${localizacao}</p>` : ''}
       ${fazenda.contratante ? `<p class="detalhes-projeto">Contratante: ${fazenda.contratante}</p>` : ''}
       <p class="detalhes-projeto">${talhoes.length} talhão(ões)</p>
@@ -120,6 +127,12 @@ function formularioNovoProjeto() {
 
 function ligarEventos(ctx) {
   const $ = (sel) => ctx.container.querySelector(sel);
+
+  const btnVoltar = $('#btn-voltar-projeto');
+  if (btnVoltar) {
+    btnVoltar.textContent = ctx.voltar.rotulo;
+    btnVoltar.addEventListener('click', () => ctx.voltar.onVoltar());
+  }
 
   $('#btn-novo-projeto').addEventListener('click', () => {
     ctx.mostrandoForm = true;
@@ -171,6 +184,10 @@ function ligarEventos(ctx) {
       );
       if (!ok) return;
       await db.excluirFazenda(id);
+      if (id === ctx.voltar?.projetoId) {
+        ctx.onProjetoApagado();
+        return;
+      }
       render(ctx);
     });
   });
