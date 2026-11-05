@@ -1,7 +1,7 @@
 # Log do Projeto — Inventário Florestal (PWA)
 
 **Última atualização deste documento:** 13/09/2026
-**Versão atual do app:** 1.4.2 na branch `feature/navegacao` (que contém a 1.2.0 de `feature/area-basal`); a `main` está em 1.1.0, tag `v1.1.0` — ver `js/versao.js`
+**Versão atual do app:** 1.4.2, na `main` (tag `v1.4.2`; versões anteriores marcadas: `v1.1.0`) — ver `js/versao.js`
 **Status:** em uso para testes de campo com equipe
 
 ---
