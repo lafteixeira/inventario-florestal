@@ -51,7 +51,7 @@ function campoNumerico(id, rotulo, valor) {
       <span class="rotulo-campo">${rotulo}</span>
       <div class="stepper">
         <button type="button" class="passo" data-alvo="${id}" data-passo="-1" aria-label="${rotulo} anterior">−</button>
-        <input id="${id}" type="text" inputmode="numeric" enterkeyhint="done" value="${valor}">
+        <input id="${id}" type="text" inputmode="numeric" value="${valor}">
         <button type="button" class="passo" data-alvo="${id}" data-passo="1" aria-label="${rotulo} seguinte">+</button>
       </div>
     </div>
@@ -84,13 +84,14 @@ function render(ctx) {
           ${campoNumerico('arvore', 'Árvore', arvore)}
         </div>
 
-        <label class="campo-grande-rotulo">CAP (cm)
-          <input id="cap" class="campo-grande" type="text" inputmode="decimal" enterkeyhint="done" placeholder="ex: 32,5">
-        </label>
-
-        <label class="campo-grande-rotulo">Altura (m)${somar130 ? ' · soma 1,30 m sozinho' : ''}
-          <input id="altura" class="campo-grande" type="text" inputmode="decimal" enterkeyhint="done" placeholder="só se medir">
-        </label>
+        <div class="linha-campos linha-cap-altura">
+          <label class="campo-grande-rotulo">CAP (cm)
+            <input id="cap" class="campo-grande" type="text" inputmode="decimal" enterkeyhint="next">
+          </label>
+          <label class="campo-grande-rotulo">Altura (m)${somar130 ? ' +1,30' : ''}
+            <input id="altura" class="campo-grande" type="text" inputmode="decimal" enterkeyhint="done">
+          </label>
+        </div>
 
         ${
           usarQualidade
@@ -101,9 +102,6 @@ function render(ctx) {
         }
 
         <p id="msg-validacao" class="msg" hidden></p>
-        <div class="barra-adicionar">
-          <button type="submit" id="btn-adicionar" class="btn-adicionar">Adicionar</button>
-        </div>
       </form>
 
       <div id="ultima-leitura" class="ultima-leitura"></div>
@@ -194,10 +192,40 @@ function ligarEventos(ctx) {
     ctx.pendente = null;
   });
 
-  $('#form-medicao').addEventListener('submit', (e) => {
+  $('#form-medicao').addEventListener('submit', (e) => e.preventDefault());
+
+  // OK/Enter no CAP: confere e passa para a altura. OK/Enter na altura (com ou
+  // sem valor): registra a árvore e volta para o CAP.
+  $('#cap').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    avancarParaAltura(ctx);
+  });
+  $('#altura').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
     e.preventDefault();
     tentarAdicionarMedicao(ctx);
   });
+}
+
+function avancarParaAltura(ctx) {
+  const $ = (sel) => ctx.container.querySelector(sel);
+  const msg = $('#msg-validacao');
+  const resultado = validarCap($('#cap').value);
+
+  if (resultado.status === 'invalido' || resultado.status === 'bloqueado') {
+    msg.textContent = resultado.mensagem;
+    msg.hidden = false;
+    return;
+  }
+  // CAP = 0 é falha de plantio: não há altura a medir, registra direto.
+  if (resultado.status === 'falha') {
+    tentarAdicionarMedicao(ctx);
+    return;
+  }
+  msg.textContent = resultado.mensagem;
+  msg.hidden = resultado.status !== 'alerta';
+  $('#altura').focus();
 }
 
 async function tentarAdicionarMedicao(ctx) {
@@ -252,7 +280,7 @@ async function tentarAdicionarMedicao(ctx) {
 
   if (avisos.length > 0 && !ctx.pendente) {
     ctx.pendente = true;
-    mostrarMsg(`${avisos.join(' ')} Toque em Adicionar de novo para confirmar.`);
+    mostrarMsg(`${avisos.join(' ')} Aperte OK de novo para confirmar.`);
     return;
   }
 

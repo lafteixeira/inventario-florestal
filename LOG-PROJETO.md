@@ -1,7 +1,7 @@
 # Log do Projeto — Inventário Florestal (PWA)
 
 **Última atualização deste documento:** 13/09/2026
-**Versão atual do app:** 1.4.0 na branch `feature/navegacao` (que contém a 1.2.0 de `feature/area-basal`); a `main` está em 1.1.0, tag `v1.1.0` — ver `js/versao.js`
+**Versão atual do app:** 1.4.1 na branch `feature/navegacao` (que contém a 1.2.0 de `feature/area-basal`); a `main` está em 1.1.0, tag `v1.1.0` — ver `js/versao.js`
 **Status:** em uso para testes de campo com equipe
 
 ---
@@ -96,9 +96,10 @@ Dentro de um projeto aberto há quatro abas, nesta ordem: **Cadastro | Coleta | 
 - Lista de talhões e parcelas com **Apagar** (cascata, com confirmação).
 
 ### Coleta (só digitação, uso na vertical)
-- Cabeçalho `Talhão · P# · n árv.`; Linha (se habilitada) e Árvore com botões − / +; trocar de linha propõe a próxima árvore daquela linha; **CAP** e **Altura** em campos grandes com teclado numérico (Enter no CAP adiciona); Qualidade em botão que abre uma grade de letras (volta para N a cada árvore); botão **Adicionar** grande e fixo acima do teclado.
+- Layout compacto para caber na metade da tela que sobra com o teclado aberto (testado com 420 px de altura): topo reduzido (some o nome do app com projeto aberto), Linha (se habilitada) e Árvore com botões − / + e números grandes; trocar de linha propõe a próxima árvore daquela linha; **CAP e Altura lado a lado**, teclado numérico; Qualidade em botão que abre uma grade de letras (volta para N a cada árvore).
+- **Fluxo pelo OK do teclado, sem botão Adicionar:** OK no CAP confere e passa para a Altura; OK na Altura (com ou sem valor) registra a árvore e volta ao CAP. CAP = 0 registra Falha direto. CAP vazio ou inválido não avança.
 - Faixa com a **última leitura** e **Desfazer**; selo "Faltam alturas em N classe(s)" que leva à Análise.
-- Alertas curtos de uma linha, com confirmação por segundo toque: CAP/altura incomuns, DAP abaixo de 5 cm, árvore repetida na mesma linha/parcela.
+- Alertas curtos de uma linha, com confirmação por segundo OK: CAP/altura incomuns, DAP abaixo de 5 cm, árvore repetida na mesma linha/parcela.
 - Sem cadastro, contadores nem botões de finalizar/concluir (tudo isso fica no Cadastro). Todos os campos desligam as sugestões do teclado (autocomplete, autocorreção, corretor).
 
 ### Análise
@@ -203,6 +204,7 @@ Implementado em `js/stats.js`:
 | 05/11/2026 | *(branch `feature/area-basal`)* | Área basal por parcela (G, m²/ha) e suficiência amostral do projeto pela área basal (parcelas concluídas, t de Student, correção de população finita, erro admissível editável); coluna G no CSV de parcelas. Versão 1.2.0. Planejamento do piloto em `PLANO-PILOTO.md`. |
 | 05/11/2026 | *(branch `feature/navegacao`)* | Navegação: deslize lateral entre as abas (ignorado em campos de texto, teclado aberto, leitura digitada e ainda não adicionada, tabelas com rolagem lateral, histograma, modal e borda da tela); botão **Projetos** sempre visível no topo, e na tela Projetos um botão grande **Voltar** que retorna à última aba usada (com o projeto marcado "aberto agora"); apagar o projeto aberto limpa o Voltar. Versão 1.3.0. (O deslize lateral foi removido na 1.4.0 depois do teste no celular.) |
 | 05/11/2026 | *(branch `feature/navegacao`)* | **Reestruturação em quatro abas (Cadastro, Coleta, Análise, Dados), versão 1.4.0**, a partir do primeiro teste de campo no celular: Coleta enxuta (campos grandes, steppers, Enter no CAP adiciona, qualidade em grade de letras, Adicionar fixo acima do teclado, última leitura + Desfazer, alertas curtos, aviso de árvore repetida); Cadastro com opções do projeto (linha, qualidade, somar 1,30 m), talhão novo pré-preenchido, centro da parcela por GPS, finalizar/concluir/apagar; Análise (parcela e projeto) com seletor de talhão; aba Dados (salvar, exportar, importar); sugestões do teclado desligadas; só toque nas abas (sem deslize). Não inclui ainda perfis coordenador/coletor, pacotes de campo, UUID nas medições, licença do app nem mapa. |
+| 05/11/2026 | *(branch `feature/navegacao`)* | **1.4.1 — Coleta compacta para o teclado aberto**, após o segundo teste no celular: CAP e Altura lado a lado; steppers de Linha/Árvore com números legíveis; topo reduzido; botão Adicionar removido; OK no CAP vai para a Altura e OK na Altura registra a árvore e volta ao CAP. |
 
 ## 14. Limitações conhecidas / próximos passos
 

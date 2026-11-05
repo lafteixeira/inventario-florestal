@@ -583,55 +583,60 @@ td input, td select {
   color: #555;
 }
 
-.campo-stepper { flex: 1; margin-bottom: 0.75rem; }
+.campo-stepper { flex: 1; min-width: 0; margin-bottom: 0.5rem; }
 
 .stepper {
   display: grid;
-  grid-template-columns: 3.4rem 1fr 3.4rem;
-  gap: 0.3rem;
-  margin-top: 0.25rem;
+  grid-template-columns: 2.6rem minmax(0, 1fr) 2.6rem;
+  gap: 0.25rem;
+  margin-top: 0.15rem;
 }
 
 .stepper .passo {
   padding: 0;
-  font-size: 1.6rem;
-  min-height: 3.4rem;
+  font-size: 1.5rem;
+  min-height: 3rem;
   background: #4b5b52;
 }
 
 .stepper input {
+  min-width: 0;
+  padding: 0.2rem;
   text-align: center;
   font-size: 1.6rem;
-  min-height: 3.4rem;
+  font-weight: 600;
+  min-height: 3rem;
 }
 
-.campo-grande-rotulo { font-size: 0.95rem; }
+.linha-cap-altura { gap: 0.5rem; margin-bottom: 0.5rem; }
+.linha-cap-altura label { min-width: 0; margin-bottom: 0; }
+
+.campo-grande-rotulo { font-size: 0.9rem; }
 
 .campo-grande {
-  font-size: 1.9rem;
-  min-height: 3.6rem;
-  padding: 0.5rem 0.8rem;
+  min-width: 0;
+  font-size: 1.8rem;
+  min-height: 3.4rem;
+  padding: 0.3rem 0.6rem;
+  text-align: center;
 }
 
 .btn-qualidade {
   text-align: left;
-  font-size: 0.95rem;
-  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.5rem;
 }
 
-.barra-adicionar {
-  position: sticky;
-  bottom: 0;
-  background: white;
-  padding: 0.5rem 0;
-  z-index: 5;
+/* Coleta: aproveitar cada pixel com o teclado aberto (metade da tela). */
+#app.modo-coleta { padding: 0.4rem; }
+#app.modo-coleta .painel-coleta { padding: 0.5rem; margin-bottom: 0; }
+
+@media (max-width: 480px) {
+  body.projeto-aberto .topo strong { display: none; }
+  .topo { padding: 0.4rem 0.6rem; }
 }
 
-.btn-adicionar {
-  min-height: 4rem;
-  font-size: 1.35rem;
-  font-weight: 600;
-}
 
 .ultima-leitura { margin-top: 0.8rem; }
 

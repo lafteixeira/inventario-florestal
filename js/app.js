@@ -37,6 +37,8 @@ async function main() {
 // Vai para a lista de Projetos. Se já há um projeto aberto, ele continua
 // aberto em segundo plano e a tela oferece "Voltar" para a última aba usada.
 function mostrarHome() {
+  app.classList.remove('modo-coleta');
+  document.body.classList.remove('projeto-aberto');
   nav.hidden = true;
   btnProjetos.hidden = true;
   nomeProjetoEl.hidden = !fazendaAtual;
@@ -85,6 +87,7 @@ async function abrirProjeto(fazenda) {
   fazendaAtual = fazenda;
   await db.setMeta({ fazendaAtualId: fazenda.id });
 
+  document.body.classList.add('projeto-aberto');
   nomeProjetoEl.textContent = fazenda.nome;
   nomeProjetoEl.hidden = false;
   btnProjetos.hidden = false;
@@ -105,6 +108,7 @@ async function mostrarTela(chave) {
   trocandoTela = true;
   try {
     telaAtual = chave;
+    app.classList.toggle('modo-coleta', chave === 'coleta');
     nav.querySelectorAll('button').forEach((b) => b.classList.toggle('ativa', b.dataset.tela === chave));
     // Opções do projeto podem ter mudado no Cadastro: sempre lê a versão atual.
     fazendaAtual = (await db.getFazenda(fazendaAtual.id)) ?? fazendaAtual;
